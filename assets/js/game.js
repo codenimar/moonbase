@@ -233,14 +233,57 @@ class GameScene extends Phaser.Scene {
   _setupInput() {
     const cam = this.cameras.main;
 
-    // Camera drag (middle button or right button or touch)
+    // Track touch pointers for pan/pinch
+    this._touchPts  = {};    // pointerId → {x, y}
+    this._pinchDist = null;
+
+    // ── Pointer DOWN ────────────────────────────────────────
     this.input.on('pointerdown', (ptr) => {
-      if (ptr.rightButtonDown() || ptr.middleButtonDown()) {
-        this._camDrag  = true;
+      this._touchPts[ptr.id] = { x: ptr.x, y: ptr.y };
+      const ptCount = Object.keys(this._touchPts).length;
+
+      if (ptCount === 2) {
+        // Two fingers: pan + pinch mode
+        this._touchPan = true;
+        this._singleTapCancelled = true;
+        const pts = Object.values(this._touchPts);
+        this._pinchDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        this._dragStart = {
+          x: (pts[0].x + pts[1].x) / 2 + cam.scrollX,
+          y: (pts[0].y + pts[1].y) / 2 + cam.scrollY,
+        };
+      } else if (ptr.rightButtonDown() || ptr.middleButtonDown()) {
+        this._camDrag   = true;
+        this._touchPan  = false;
         this._dragStart = { x: ptr.x + cam.scrollX, y: ptr.y + cam.scrollY };
+      } else {
+        this._singleTapCancelled = false;
       }
     });
+
+    // ── Pointer MOVE ────────────────────────────────────────
     this.input.on('pointermove', (ptr) => {
+      if (this._touchPts[ptr.id]) {
+        this._touchPts[ptr.id] = { x: ptr.x, y: ptr.y };
+      }
+      const ptCount = Object.keys(this._touchPts).length;
+
+      if (ptCount === 2) {
+        const pts = Object.values(this._touchPts);
+        // Pinch-to-zoom
+        const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        if (this._pinchDist !== null) {
+          cam.zoom = Phaser.Math.Clamp(cam.zoom + (dist - this._pinchDist) * 0.005, 0.4, 2.5);
+        }
+        this._pinchDist = dist;
+        // Two-finger pan
+        const mx = (pts[0].x + pts[1].x) / 2;
+        const my = (pts[0].y + pts[1].y) / 2;
+        cam.scrollX = this._dragStart.x - mx;
+        cam.scrollY = this._dragStart.y - my;
+        return;
+      }
+
       if (this._camDrag) {
         cam.scrollX = this._dragStart.x - ptr.x;
         cam.scrollY = this._dragStart.y - ptr.y;
@@ -253,18 +296,29 @@ class GameScene extends Phaser.Scene {
         this._updateGhost(gx, gy);
       }
     });
+
+    // ── Pointer UP ──────────────────────────────────────────
     this.input.on('pointerup', (ptr) => {
+      delete this._touchPts[ptr.id];
+      const ptCount = Object.keys(this._touchPts).length;
+      if (ptCount === 0) {
+        this._camDrag             = false;
+        this._touchPan            = false;
+        this._pinchDist           = null;
+        this._singleTapCancelled  = false;  // reset so next tap works
+      }
+      if (ptCount < 2) { this._pinchDist = null; }
       if (ptr.rightButtonReleased() || ptr.middleButtonReleased()) {
         this._camDrag = false;
       }
     });
 
-    // Zoom (mouse wheel)
+    // ── Zoom (mouse wheel) ──────────────────────────────────
     this.input.on('wheel', (_ptr, _go, _dx, dy) => {
       cam.zoom = Phaser.Math.Clamp(cam.zoom - dy * 0.001, 0.5, 2.0);
     });
 
-    // Keyboard shortcuts
+    // ── Keyboard shortcuts ──────────────────────────────────
     const escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     escKey.on('down', () => {
       if (GameState.mode === 'build') {
@@ -274,6 +328,16 @@ class GameScene extends Phaser.Scene {
         UI.toast('Build mode cancelled', 'info');
       }
     });
+
+    // One-time touch hint on mobile
+    if ('ontouchstart' in window && !sessionStorage.getItem('touchHintShown')) {
+      sessionStorage.setItem('touchHintShown', '1');
+      const hint = document.createElement('div');
+      hint.className = 'touch-hint';
+      hint.textContent = '✌️ Two fingers to pan & pinch-zoom';
+      document.body.appendChild(hint);
+      setTimeout(() => hint.remove(), 3200);
+    }
   }
 
   // ── Selection ring ─────────────────────────────────────────────────────
@@ -294,7 +358,7 @@ class GameScene extends Phaser.Scene {
   }
 
   _onTileClick(tile) {
-    if (this._camDrag) return;
+    if (this._camDrag || this._touchPan || this._singleTapCancelled) return;
 
     if (GameState.mode === 'build' && GameState.selectedType) {
       this._placeBuilding(tile.gridX, tile.gridY, GameState.selectedType);
@@ -571,7 +635,10 @@ function initGame() {
     height: container.clientHeight,
     backgroundColor: '#050510',
     scene:  [BootScene, GameScene],
-    input:  { mouse: { preventDefaultWheel: true } },
+    input:  {
+      mouse:  { preventDefaultWheel: true },
+      touch:  { capture: true },         // enable multi-touch
+    },
     scale: {
       mode:       Phaser.Scale.RESIZE,
       autoCenter: Phaser.Scale.CENTER_BOTH,

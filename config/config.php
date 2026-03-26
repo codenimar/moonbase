@@ -21,8 +21,15 @@ defined('DB_SOCKET')  || define('DB_SOCKET',  getenv('DB_SOCKET')  ?: '');
 defined('DB_CHARSET') || define('DB_CHARSET', 'utf8mb4');
 
 // ── Solana / Token ───────────────────────────────────────────────────────────
-// SPL token mint address for $PUMPVILLE (placeholder for $MOONFUEL)
+// SPL token mint address for $PUMPVILLE (fuel-bonus governance token)
 defined('TOKEN_MINT_ADDRESS') || define('TOKEN_MINT_ADDRESS', '72FkeF1cpBMtbordhTVNVbBGdaN5DfHcchstHwPWpump');
+
+// On-chain MoonCoin SPL token – replace in-game credit with real token
+// Set MOONCOIN_MINT_ADDRESS in config.local.php once the mint is deployed
+defined('MOONCOIN_MINT_ADDRESS') || define('MOONCOIN_MINT_ADDRESS', getenv('MOONCOIN_MINT_ADDRESS') ?: '');
+
+// Bridge fee (% of MoonCoins burned when converting in-game credit to on-chain)
+defined('MOONCOIN_BRIDGE_FEE_PCT') || define('MOONCOIN_BRIDGE_FEE_PCT', 5);
 
 // Solana RPC endpoint (use a private RPC in production)
 defined('SOLANA_RPC_URL') || define('SOLANA_RPC_URL', getenv('SOLANA_RPC_URL') ?: 'https://api.mainnet-beta.solana.com');
