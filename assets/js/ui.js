@@ -249,6 +249,362 @@ const UI = (() => {
     }
   }
 
+  // ── Research panel ────────────────────────────────────────────────────────
+  async function refreshResearchPanel() {
+    const container = document.getElementById('research-list');
+    if (!container) return;
+    container.innerHTML = '<p class="text-dim text-center">Loading…</p>';
+    const data = await apiGet('/api/research.php');
+    if (data.error) { container.innerHTML = `<p class="text-red">${escapeHtml(data.error)}</p>`; return; }
+
+    const { tree, player_tech, lab_level, active_research } = data;
+    const categoryOrder = ['production', 'offense', 'defense', 'economy'];
+    const catLabels = { production: '⚗️ Production', offense: '⚔️ Offense', defense: '🛡 Defense', economy: '💹 Economy' };
+
+    if (lab_level === 0) {
+      container.innerHTML = '<p class="text-dim text-center" style="padding:16px">Build a Research Lab to unlock technologies.</p>';
+      return;
+    }
+
+    // Show active research timer
+    let activeHtml = '';
+    if (active_research) {
+      const finish = new Date(active_research.finish_time);
+      const remaining = Math.max(0, finish - Date.now());
+      activeHtml = `<div class="research-card researching mb-2">
+        <div class="research-card-header">
+          <span class="research-card-name">⏳ ${escapeHtml(tree[active_research.tech_key]?.name || active_research.tech_key)}</span>
+          <span class="text-orange" style="font-size:11px">Level ${active_research.level}</span>
+        </div>
+        <div class="research-progress-bar">
+          <div class="research-progress-fill" id="research-active-fill" style="width:0%"></div>
+        </div>
+        <div id="research-timer" class="text-dim" style="font-size:11px;margin-top:4px">Finishes ${finish.toLocaleTimeString()}</div>
+        <button class="btn btn-success w-full mt-2" style="font-size:11px"
+                onclick="GameUI.completeResearch('${escapeHtml(active_research.tech_key)}')">
+          ✅ Collect if Ready
+        </button>
+      </div>`;
+    }
+
+    const byCategory = {};
+    for (const [key, def] of Object.entries(tree)) {
+      if (!byCategory[def.category]) byCategory[def.category] = [];
+      byCategory[def.category].push([key, def]);
+    }
+
+    let html = activeHtml;
+    for (const cat of categoryOrder) {
+      const techs = byCategory[cat] || [];
+      html += `<div class="research-category-header">${catLabels[cat] || cat}</div>`;
+      for (const [key, def] of techs) {
+        const pt        = player_tech[key];
+        const cur_level = pt ? (int_like(pt.level)) : 0;
+        const next_lvl  = cur_level + 1;
+        const maxed     = cur_level >= def.max_level;
+        const prereq_ok = !def.prerequisite || !!player_tech[def.prerequisite];
+        const lab_ok    = lab_level >= def.requires_lab_level;
+        const locked    = !prereq_ok || !lab_ok;
+        const is_active = active_research && active_research.tech_key === key;
+        const lvl_def   = !maxed ? def.levels[next_lvl] : null;
+
+        html += `<div class="research-card ${maxed ? 'maxed' : ''} ${locked ? 'locked' : ''} ${is_active ? 'researching' : ''}">
+          <div class="research-card-header">
+            <span class="research-card-name">${escapeHtml(def.name)}</span>
+            <span class="research-card-level">${maxed ? '✅ MAX' : `${cur_level}/${def.max_level}`}</span>
+          </div>
+          <div class="research-card-desc">${escapeHtml(def.description)}</div>
+          ${locked ? `<div class="text-dim" style="font-size:11px">
+            ${!lab_ok ? `🔬 Requires Lab Level ${def.requires_lab_level}` : ''}
+            ${!prereq_ok ? `🔒 Requires: ${escapeHtml(tree[def.prerequisite]?.name || def.prerequisite)}` : ''}
+          </div>` : ''}
+          ${!maxed && !locked && !is_active && lvl_def ? `
+            <div class="research-card-costs">
+              ${lvl_def.cost.fuel     ? `<span class="cost-tag">⛽ ${lvl_def.cost.fuel}</span>`      : ''}
+              ${lvl_def.cost.minerals ? `<span class="cost-tag">💎 ${lvl_def.cost.minerals}</span>` : ''}
+              ${lvl_def.cost.mooncoin ? `<span class="cost-tag">🪙 ${lvl_def.cost.mooncoin}</span>` : ''}
+            </div>
+            <button class="btn btn-primary w-full" style="font-size:11px;padding:6px 8px"
+                    onclick="GameUI.startResearch('${escapeHtml(key)}')">
+              🔬 Research Level ${next_lvl}
+            </button>` : ''}
+        </div>`;
+      }
+    }
+    container.innerHTML = html;
+  }
+
+  async function startResearch(techKey) {
+    const res = await apiPost('/api/research.php', { action: 'start', tech_key: techKey });
+    if (res.success) {
+      toast(`Research started! Finishes at ${res.finish_time}`, 'success');
+      refreshResearchPanel();
+    } else {
+      toast(res.error || 'Research failed', 'error');
+    }
+  }
+
+  async function completeResearch(techKey) {
+    const res = await apiPost('/api/research.php', { action: 'complete', tech_key: techKey });
+    if (res.success) {
+      toast(`Research complete! ${techKey} is now Level ${res.level}`, 'success');
+      refreshResearchPanel();
+      window.GameState?.refresh?.();
+    } else {
+      toast(res.error || 'Not ready yet', 'info');
+    }
+  }
+
+  // ── Raids panel ──────────────────────────────────────────────────────────
+  async function refreshRaidsPanel() {
+    const container = document.getElementById('raids-list');
+    if (!container) return;
+    container.innerHTML = '<p class="text-dim text-center">Loading…</p>';
+    const data = await apiGet('/api/raids.php');
+    if (data.error) { container.innerHTML = `<p class="text-red">${escapeHtml(data.error)}</p>`; return; }
+
+    if (!data.raids.length) {
+      container.innerHTML = '<p class="text-dim text-center">No raids yet</p>';
+      return;
+    }
+    const me = window.GameState?.player?.wallet_address;
+    container.innerHTML = data.raids.map(r => {
+      const isAttacker  = r.attacker_wallet === me;
+      const otherName   = isAttacker
+        ? (r.defender_name  || shortenAddress(r.defender_wallet))
+        : (r.attacker_name  || shortenAddress(r.attacker_wallet));
+      const outcomeClass = r.outcome === 'attacker_win'
+        ? (isAttacker ? 'raid-outcome-win' : 'raid-outcome-lose')
+        : r.outcome === 'defender_win'
+          ? (isAttacker ? 'raid-outcome-lose' : 'raid-outcome-win')
+          : 'raid-outcome-draw';
+      const outcomeLabel = r.outcome === 'attacker_win'
+        ? (isAttacker ? '⚔️ Victory' : '🛡 Defended')
+        : r.outcome === 'defender_win'
+          ? (isAttacker ? '🛡 Repelled' : '⚔️ Victory')
+          : '🤝 Draw';
+      const lootParts = [];
+      if (parseFloat(r.loot_fuel)     > 0) lootParts.push(`⛽ ${parseFloat(r.loot_fuel).toFixed(0)}`);
+      if (parseFloat(r.loot_minerals) > 0) lootParts.push(`💎 ${parseFloat(r.loot_minerals).toFixed(0)}`);
+      if (parseFloat(r.loot_metal)    > 0) lootParts.push(`⚙️ ${parseFloat(r.loot_metal).toFixed(0)}`);
+      return `
+        <div class="raid-card">
+          <div class="raid-card-header">
+            <span>${isAttacker ? '⚔️ Raided' : '🛡 Attacked by'} <strong>${escapeHtml(otherName)}</strong></span>
+            <span class="${outcomeClass}">${outcomeLabel}</span>
+          </div>
+          <div class="raid-meta">
+            <span>⚡ ${r.attack_power} vs 🛡 ${r.defense_power}</span>
+            ${lootParts.length ? `<span>Loot: ${lootParts.join(' ')}</span>` : ''}
+            <span>${r.resolved_at ? new Date(r.resolved_at).toLocaleDateString() : 'Pending'}</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  async function initiateRaid(targetWallet) {
+    if (!targetWallet) {
+      targetWallet = prompt('Enter target player wallet address:');
+      if (!targetWallet) return;
+    }
+    if (!confirm(`Raid ${shortenAddress(targetWallet)}?`)) return;
+    const res = await apiPost('/api/raids.php', { action: 'initiate', target_wallet: targetWallet });
+    if (res.success) {
+      const loot = res.loot;
+      const lootStr = [
+        loot.fuel     > 0 ? `⛽ ${loot.fuel.toFixed(0)}`     : '',
+        loot.minerals > 0 ? `💎 ${loot.minerals.toFixed(0)}` : '',
+        loot.metal    > 0 ? `⚙️ ${loot.metal.toFixed(0)}`    : '',
+      ].filter(Boolean).join(' ');
+      const msg = res.outcome === 'attacker_win'
+        ? `⚔️ Raid successful! Looted: ${lootStr || 'nothing'}`
+        : res.outcome === 'defender_win'
+          ? `🛡 Raid failed – defender's towers held!`
+          : '🤝 Draw! Both sides held their ground.';
+      toast(msg, res.outcome === 'attacker_win' ? 'success' : 'info');
+      refreshRaidsPanel();
+      window.GameState?.refresh?.();
+    } else {
+      toast(res.error || 'Raid failed', 'error');
+    }
+  }
+
+  // ── Alliance panel ────────────────────────────────────────────────────────
+  async function refreshAlliancePanel() {
+    const container = document.getElementById('alliance-content');
+    if (!container) return;
+    container.innerHTML = '<p class="text-dim text-center">Loading…</p>';
+    const data = await apiGet('/api/alliances.php');
+    if (data.error) { container.innerHTML = `<p class="text-red">${escapeHtml(data.error)}</p>`; return; }
+
+    const { alliances, my_membership } = data;
+
+    let html = '';
+    if (my_membership) {
+      // Show my alliance + leave/donate
+      const myAl = alliances.find(a => a.id === my_membership.alliance_id);
+      html += `<div class="alliance-card" style="border-color:var(--accent-cyan)">
+        <div class="alliance-card-header">
+          <span class="alliance-card-name">${myAl ? escapeHtml(myAl.name) : '?'}
+            <span class="alliance-tag">${myAl ? escapeHtml(myAl.tag) : ''}</span>
+          </span>
+          <span class="role-badge role-${escapeHtml(my_membership.role)}">${my_membership.role}</span>
+        </div>
+        <div class="alliance-card-meta">🪙 Treasury: ${myAl ? parseFloat(myAl.mooncoin_bank).toLocaleString() : 0} MC</div>
+        <div class="flex gap-1 mt-2">
+          <button class="btn btn-primary" style="flex:1;font-size:11px" onclick="GameUI.donateToAlliance()">🪙 Donate</button>
+          ${my_membership.role !== 'founder' ? `<button class="btn btn-danger" style="flex:1;font-size:11px" onclick="GameUI.leaveAlliance()">🚪 Leave</button>` : ''}
+        </div>
+      </div>`;
+    } else {
+      html += `<div class="mb-2">
+        <button class="btn btn-success w-full" onclick="GameUI.showCreateAllianceModal()">⚔️ Found Alliance</button>
+      </div>`;
+    }
+
+    html += `<div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin:10px 0 6px">All Alliances</div>`;
+
+    if (!alliances.length) {
+      html += '<p class="text-dim text-center">No alliances yet</p>';
+    } else {
+      html += alliances.map(al => `
+        <div class="alliance-card">
+          <div class="alliance-card-header">
+            <span class="alliance-card-name">${escapeHtml(al.name)}
+              <span class="alliance-tag">${escapeHtml(al.tag)}</span>
+            </span>
+            <span class="text-dim" style="font-size:11px">👥 ${al.member_count}</span>
+          </div>
+          <div class="alliance-card-meta">
+            ⭐ Top Level: ${al.top_level || 0}
+            &nbsp;&nbsp;🪙 ${parseFloat(al.mooncoin_bank).toLocaleString()} MC
+          </div>
+          ${!my_membership ? `
+            <button class="btn btn-secondary w-full mt-1" style="font-size:11px"
+                    onclick="GameUI.joinAlliance(${al.id}, '${escapeHtml(al.name)}')">
+              Join
+            </button>` : ''}
+        </div>`).join('');
+    }
+
+    container.innerHTML = html;
+  }
+
+  async function joinAlliance(id, name) {
+    if (!confirm(`Join "${name}"?`)) return;
+    const res = await apiPost('/api/alliances.php', { action: 'join', alliance_id: id });
+    if (res.success) { toast('Joined alliance!', 'success'); refreshAlliancePanel(); }
+    else toast(res.error || 'Failed', 'error');
+  }
+
+  async function leaveAlliance() {
+    if (!confirm('Leave your alliance?')) return;
+    const res = await apiPost('/api/alliances.php', { action: 'leave' });
+    if (res.success) { toast('Left alliance', 'info'); refreshAlliancePanel(); }
+    else toast(res.error || 'Failed', 'error');
+  }
+
+  async function donateToAlliance() {
+    const amount = parseFloat(prompt('How many MoonCoins to donate to treasury?') || '0');
+    if (!amount || amount <= 0) return;
+    const res = await apiPost('/api/alliances.php', { action: 'donate', amount });
+    if (res.success) { toast(`Donated ${amount} MC to treasury!`, 'success'); refreshAlliancePanel(); }
+    else toast(res.error || 'Failed', 'error');
+  }
+
+  function showCreateAllianceModal() {
+    showModal({
+      title: '⚔️ Found an Alliance',
+      body: `
+        <div class="mb-3">
+          <label style="display:block;font-size:13px;margin-bottom:4px">Alliance Name</label>
+          <input id="al-name" type="text" maxlength="64" placeholder="e.g. Moon Wolves"
+            style="width:100%;padding:8px;background:var(--bg-panel-light);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:14px">
+        </div>
+        <div class="mb-3">
+          <label style="display:block;font-size:13px;margin-bottom:4px">Tag (2–8 uppercase)</label>
+          <input id="al-tag" type="text" maxlength="8" placeholder="e.g. WOLF"
+            style="width:100%;padding:8px;background:var(--bg-panel-light);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:14px">
+        </div>
+        <div class="mb-3">
+          <label style="display:block;font-size:13px;margin-bottom:4px">Description</label>
+          <textarea id="al-desc" maxlength="500" rows="3" placeholder="Your alliance mission…"
+            style="width:100%;padding:8px;background:var(--bg-panel-light);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:13px;resize:vertical"></textarea>
+        </div>
+        <p class="text-dim" style="font-size:11px">Requires Level 10. You become the founder.</p>`,
+      buttons: [
+        { label: '⚔️ Found', action: 'create', class: 'btn-success', onClick: async (close) => {
+          const name = document.getElementById('al-name').value.trim();
+          const tag  = document.getElementById('al-tag').value.trim().toUpperCase();
+          const desc = document.getElementById('al-desc').value.trim();
+          const res  = await apiPost('/api/alliances.php', { action: 'create', name, tag, description: desc });
+          if (res.success) { toast('Alliance created!', 'success'); close(); refreshAlliancePanel(); }
+          else toast(res.error || 'Failed', 'error');
+        }},
+        { label: 'Cancel', action: 'close', class: 'btn-secondary' },
+      ],
+    });
+  }
+
+  // ── MoonCoin bridge panel ─────────────────────────────────────────────────
+  async function refreshMooncoinPanel(player) {
+    const container = document.getElementById('mooncoin-status');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div class="token-card">
+        <h4>🪙 MoonCoin Balance</h4>
+        <div class="token-balance">${parseFloat(player.mooncoin_balance).toLocaleString(undefined,{maximumFractionDigits:2})}</div>
+        <div class="token-bonus" style="color:var(--text-secondary)">In-game credit (non-transferable)</div>
+        <hr style="border-color:var(--border);margin:12px 0">
+        <h4 style="font-size:12px;color:var(--accent-cyan)">On-chain MoonCoin SPL Token</h4>
+        <p style="font-size:11px;color:var(--text-dim);margin-bottom:10px">
+          Bridge your in-game MoonCoins to real on-chain SPL tokens.
+          A ${typeof MOONCOIN_BRIDGE_FEE !== 'undefined' ? MOONCOIN_BRIDGE_FEE : 5}% burn fee applies.
+        </p>
+        <button class="btn btn-primary w-full" onclick="GameUI.showBridgeModal()">
+          🌉 Bridge to On-chain
+        </button>
+      </div>`;
+  }
+
+  function showBridgeModal() {
+    showModal({
+      title: '🌉 Bridge MoonCoins On-chain',
+      body: `
+        <p style="font-size:13px;margin-bottom:12px;color:var(--text-secondary)">
+          Convert in-game MoonCoins to on-chain SPL tokens sent to your Solana wallet.
+          A <strong>5% burn fee</strong> is deducted from the bridged amount.
+        </p>
+        <div class="mb-3">
+          <label style="display:block;font-size:13px;margin-bottom:4px">Amount to Bridge</label>
+          <input id="bridge-amount" type="number" min="100" step="1" placeholder="Min. 100 MoonCoins"
+            style="width:100%;padding:8px;background:var(--bg-panel-light);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:14px">
+        </div>
+        <p class="text-dim" style="font-size:11px">
+          Tokens will be airdropped to your connected Solana wallet within 24 hours once the MoonCoin SPL token launches.
+        </p>`,
+      buttons: [
+        { label: '🌉 Bridge', action: 'bridge', class: 'btn-primary', onClick: async (close) => {
+          const amount = parseFloat(document.getElementById('bridge-amount').value || '0');
+          if (!amount || amount < 100) { toast('Minimum bridge amount is 100 MoonCoins', 'error'); return; }
+          const res = await apiPost('/api/wallet.php', { action: 'bridge_mooncoin', amount });
+          if (res.success) {
+            toast(`Bridge request submitted! ${res.after_fee} MC queued for on-chain transfer.`, 'success');
+            close();
+            window.GameState?.refresh?.();
+          } else {
+            toast(res.error || 'Bridge failed', 'error');
+          }
+        }},
+        { label: 'Cancel', action: 'close', class: 'btn-secondary' },
+      ],
+    });
+  }
+
+  // helper used in research panel
+  function int_like(v) { return parseInt(v, 10) || 0; }
+
   // ── Token status panel ────────────────────────────────────────────────────
   async function refreshTokenPanel(player) {
     const container = document.getElementById('token-status');
@@ -336,6 +692,18 @@ const UI = (() => {
     refreshEventsPanel,
     contributeEvent,
     claimEventReward,
+    refreshResearchPanel,
+    startResearch,
+    completeResearch,
+    refreshRaidsPanel,
+    initiateRaid,
+    refreshAlliancePanel,
+    joinAlliance,
+    leaveAlliance,
+    donateToAlliance,
+    showCreateAllianceModal,
+    refreshMooncoinPanel,
+    showBridgeModal,
     refreshTokenPanel,
     refreshTokenBalance,
     escapeHtml,

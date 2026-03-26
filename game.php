@@ -79,7 +79,12 @@ if (!$authed) {
     <button class="hud-btn" id="btn-build" title="Build Menu (B)" aria-label="Open build menu">🏗 Build</button>
     <button class="hud-btn" id="btn-market" title="Marketplace" aria-label="Open marketplace">🏪 Market</button>
     <button class="hud-btn" id="btn-events" title="Events" aria-label="Open events">🏆 Events</button>
-    <button class="hud-btn" id="btn-token" title="Token Status" aria-label="Token status">💊 Token</button>
+    <button class="hud-btn" id="btn-research" title="Research Tree" aria-label="Research tree">🔬 Research</button>
+    <button class="hud-btn" id="btn-raids" title="PvP Raids" aria-label="PvP Raids">⚔️ Raids</button>
+    <button class="hud-btn" id="btn-alliance" title="Alliance" aria-label="Alliance">🏰 Alliance</button>
+    <button class="hud-btn" id="btn-mooncoin" title="MoonCoin / Token" aria-label="MoonCoin">🪙 MC</button>
+    <button class="hud-btn" id="btn-token" title="$PUMPVILLE Token" aria-label="Token status">💊 Token</button>
+    <a href="/leaderboard.php" class="hud-btn" title="Leaderboard" aria-label="Leaderboard" style="text-decoration:none" target="_blank">🏅 Board</a>
     <span class="hud-wallet" id="hud-wallet" title="Your wallet address" aria-label="Wallet address">
       <?= htmlspecialchars(substr($wallet, 0, 4) . '…' . substr($wallet, -4)) ?>
     </span>
@@ -99,10 +104,14 @@ if (!$authed) {
     <button class="panel-close" id="panel-close-btn" aria-label="Close panel">✕</button>
   </div>
   <div class="panel-tabs" role="tablist">
-    <div class="panel-tab active" role="tab" data-panel="build-view" aria-selected="true">🏗 Build</div>
-    <div class="panel-tab" role="tab" data-panel="market-view" aria-selected="false">🏪 Market</div>
-    <div class="panel-tab" role="tab" data-panel="events-view" aria-selected="false">🏆 Events</div>
-    <div class="panel-tab" role="tab" data-panel="token-view" aria-selected="false">💊 Token</div>
+    <div class="panel-tab active" role="tab" data-panel="build-view" aria-selected="true">🏗</div>
+    <div class="panel-tab" role="tab" data-panel="market-view" aria-selected="false">🏪</div>
+    <div class="panel-tab" role="tab" data-panel="events-view" aria-selected="false">🏆</div>
+    <div class="panel-tab" role="tab" data-panel="research-view" aria-selected="false">🔬</div>
+    <div class="panel-tab" role="tab" data-panel="raids-view" aria-selected="false">⚔️</div>
+    <div class="panel-tab" role="tab" data-panel="alliance-view" aria-selected="false">🏰</div>
+    <div class="panel-tab" role="tab" data-panel="mooncoin-view" aria-selected="false">🪙</div>
+    <div class="panel-tab" role="tab" data-panel="token-view" aria-selected="false">💊</div>
   </div>
 
   <!-- Build view -->
@@ -130,6 +139,32 @@ if (!$authed) {
   <div id="token-view" class="panel-body side-panel-view hidden" role="tabpanel">
     <div id="token-status"></div>
   </div>
+
+  <!-- Research view -->
+  <div id="research-view" class="panel-body side-panel-view hidden" role="tabpanel">
+    <button class="btn btn-secondary w-full mb-2" onclick="UI.refreshResearchPanel()">🔄 Refresh</button>
+    <div id="research-list"></div>
+  </div>
+
+  <!-- Raids view -->
+  <div id="raids-view" class="panel-body side-panel-view hidden" role="tabpanel">
+    <div class="flex gap-1 mb-2">
+      <button class="btn btn-danger" style="flex:1" onclick="UI.initiateRaid()">⚔️ Launch Raid</button>
+      <button class="btn btn-secondary" style="flex:1" onclick="UI.refreshRaidsPanel()">🔄 Refresh</button>
+    </div>
+    <div id="raids-list"></div>
+  </div>
+
+  <!-- Alliance view -->
+  <div id="alliance-view" class="panel-body side-panel-view hidden" role="tabpanel">
+    <button class="btn btn-secondary w-full mb-2" onclick="UI.refreshAlliancePanel()">🔄 Refresh</button>
+    <div id="alliance-content"></div>
+  </div>
+
+  <!-- MoonCoin view -->
+  <div id="mooncoin-view" class="panel-body side-panel-view hidden" role="tabpanel">
+    <div id="mooncoin-status"></div>
+  </div>
 </aside>
 
 <!-- Toast container -->
@@ -146,6 +181,9 @@ if (!$authed) {
 <script src="/assets/js/game.js"></script>
 
 <script>
+// Bridge fee constant exposed to JS
+const MOONCOIN_BRIDGE_FEE = <?= (int)MOONCOIN_BRIDGE_FEE_PCT ?>;
+
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 (async () => {
   // Restore session from PHP session
@@ -159,18 +197,18 @@ if (!$authed) {
     window.location.href = '/index.php';
     return;
   }
-  GameState.player      = state.player;
-  GameState.buildings   = state.buildings;
+  GameState.player       = state.player;
+  GameState.buildings    = state.buildings;
   GameState.buildingDefs = state.building_defs;
-  GameState.events      = state.events;
-  GameState.fuelRate    = calcFuelRate(state.player, state.buildings, state.building_defs);
+  GameState.events       = state.events;
+  GameState.fuelRate     = calcFuelRate(state.player, state.buildings, state.building_defs);
 
   UI.updateHud(state.player, GameState.fuelRate);
 
   // Init Phaser
   initGame();
 
-  // HUD buttons
+  // ── HUD button wiring ───────────────────────────────────────────────────
   document.getElementById('btn-build').addEventListener('click', () => {
     switchTab('build-view');
     UI.openPanel('build-view');
@@ -194,6 +232,30 @@ if (!$authed) {
     UI.refreshEventsPanel();
   });
 
+  document.getElementById('btn-research').addEventListener('click', () => {
+    switchTab('research-view');
+    UI.openPanel('research-view');
+    UI.refreshResearchPanel();
+  });
+
+  document.getElementById('btn-raids').addEventListener('click', () => {
+    switchTab('raids-view');
+    UI.openPanel('raids-view');
+    UI.refreshRaidsPanel();
+  });
+
+  document.getElementById('btn-alliance').addEventListener('click', () => {
+    switchTab('alliance-view');
+    UI.openPanel('alliance-view');
+    UI.refreshAlliancePanel();
+  });
+
+  document.getElementById('btn-mooncoin').addEventListener('click', () => {
+    switchTab('mooncoin-view');
+    UI.openPanel('mooncoin-view');
+    UI.refreshMooncoinPanel(GameState.player);
+  });
+
   document.getElementById('btn-token').addEventListener('click', () => {
     switchTab('token-view');
     UI.openPanel('token-view');
@@ -204,13 +266,17 @@ if (!$authed) {
 
   document.querySelectorAll('.panel-tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      switchTab(tab.dataset.panel);
       const panelFns = {
-        'market-view': UI.refreshMarketPanel,
-        'events-view': UI.refreshEventsPanel,
-        'token-view':  () => UI.refreshTokenPanel(GameState.player),
+        'market-view':   UI.refreshMarketPanel,
+        'events-view':   UI.refreshEventsPanel,
+        'research-view': UI.refreshResearchPanel,
+        'raids-view':    UI.refreshRaidsPanel,
+        'alliance-view': UI.refreshAlliancePanel,
+        'mooncoin-view': () => UI.refreshMooncoinPanel(GameState.player),
+        'token-view':    () => UI.refreshTokenPanel(GameState.player),
       };
       panelFns[tab.dataset.panel]?.();
+      switchTab(tab.dataset.panel);
     });
   });
 
@@ -288,9 +354,17 @@ function switchTab(panelId) {
   document.querySelectorAll('.side-panel-view').forEach(v => {
     v.classList.toggle('hidden', v.id !== panelId);
   });
-  document.getElementById('panel-title').textContent =
-    { 'build-view': '🏗 Build Menu', 'market-view': '🏪 Marketplace',
-      'events-view': '🏆 Events', 'token-view': '💊 Token Status' }[panelId] || 'Panel';
+  const labels = {
+    'build-view':    '🏗 Build Menu',
+    'market-view':   '🏪 Marketplace',
+    'events-view':   '🏆 Events',
+    'research-view': '🔬 Research',
+    'raids-view':    '⚔️ PvP Raids',
+    'alliance-view': '🏰 Alliance',
+    'mooncoin-view': '🪙 MoonCoin',
+    'token-view':    '💊 Token Status',
+  };
+  document.getElementById('panel-title').textContent = labels[panelId] || 'Panel';
   UI.openPanel(panelId);
 }
 </script>

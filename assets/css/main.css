@@ -458,4 +458,126 @@ a:hover { text-decoration: underline; }
   #side-panel.open { transform: translateY(0); }
   .hud-resources { gap: 4px; }
   .res-item { padding: 4px 6px; }
+  /* Hide less important HUD buttons on small screens */
+  .hud-brand { display: none; }
+  .hud-btn   { padding: 6px 8px; font-size: 11px; }
+  .hud-wallet{ display: none; }
+  /* Larger touch targets */
+  .panel-tab { padding: 12px 6px; font-size: 11px; }
+  .btn       { padding: 10px 14px; }
+}
+
+@media (max-width: 480px) {
+  .res-item .res-cap { display: none; }
+  .res-item .res-rate{ display: none; }
+  .hud-level { display: none; }
+  #hud { padding: 0 8px; }
+}
+
+/* ── Research Panel ────────────────────────────────────────── */
+.research-tree {
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.research-category-header {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  color: var(--accent-cyan); text-transform: uppercase;
+  padding: 6px 0 4px;
+  border-bottom: 1px solid var(--border);
+  margin-top: 8px;
+}
+.research-category-header:first-child { margin-top: 0; }
+
+.research-card {
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  transition: border-color var(--transition);
+}
+.research-card:hover            { border-color: var(--accent-cyan); }
+.research-card.researching      { border-color: var(--accent-orange); }
+.research-card.maxed            { border-color: var(--accent-green); opacity: 0.7; }
+.research-card.locked           { opacity: 0.4; }
+
+.research-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 4px;
+}
+.research-card-name  { font-size: 13px; font-weight: 700; }
+.research-card-level { font-size: 11px; color: var(--text-dim); }
+.research-card-desc  { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; line-height: 1.4; }
+.research-card-costs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+
+.research-progress-bar {
+  background: rgba(0,0,0,0.3);
+  border-radius: 3px; height: 4px; margin-top: 6px; overflow: hidden;
+}
+.research-progress-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent-orange), #f0d060);
+  transition: width 1s linear;
+}
+
+/* ── Alliance Panel ────────────────────────────────────────── */
+.alliance-card {
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px; margin-bottom: 10px;
+}
+.alliance-card-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;
+}
+.alliance-card-name { font-size: 14px; font-weight: 700; }
+.alliance-card-meta { font-size: 11px; color: var(--text-dim); }
+.alliance-member-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 0; border-bottom: 1px solid rgba(26,74,122,0.2);
+  font-size: 12px;
+}
+.alliance-member-row:last-child { border-bottom: none; }
+.role-badge {
+  display: inline-block; padding: 1px 6px; border-radius: 3px;
+  font-size: 10px; font-weight: 700;
+}
+.role-founder { background: rgba(255,215,0,0.2);   color: #ffd700; }
+.role-officer { background: rgba(74,223,255,0.15); color: var(--accent-cyan); }
+.role-member  { background: rgba(26,74,122,0.3);   color: var(--text-secondary); }
+
+/* ── Raids Panel ───────────────────────────────────────────── */
+.raid-card {
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px; margin-bottom: 8px;
+}
+.raid-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.raid-outcome-win  { color: var(--accent-green);  font-weight: 700; font-size: 12px; }
+.raid-outcome-lose { color: var(--accent-red);    font-weight: 700; font-size: 12px; }
+.raid-outcome-draw { color: var(--accent-orange); font-weight: 700; font-size: 12px; }
+.raid-meta { font-size: 11px; color: var(--text-dim); }
+
+/* ── Leaderboard page ──────────────────────────────────────── */
+/* (additional lb-* styles are inline in leaderboard.php) */
+
+/* ── Mobile touch hint ─────────────────────────────────────── */
+.touch-hint {
+  display: none;
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  background: rgba(5,10,25,0.85);
+  border: 1px solid var(--border);
+  border-radius: 20px; padding: 6px 16px;
+  font-size: 11px; color: var(--text-secondary);
+  z-index: 30; pointer-events: none;
+  animation: fadeInOut 3s ease forwards;
+}
+@keyframes fadeInOut {
+  0%   { opacity: 0; }
+  15%  { opacity: 1; }
+  75%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (pointer: coarse) {
+  .touch-hint { display: block; }
 }

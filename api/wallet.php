@@ -1,10 +1,9 @@
 <?php
 /**
- * API: Wallet / Token balance check
- * POST /api/wallet.php { action: 'check_balance' }
- *
- * Queries the Solana RPC for the player's $PUMPVILLE SPL token balance.
- * Updates the player's fuel_rate_bonus based on token tiers.
+ * API: Wallet / Token balance
+ * POST /api/wallet.php { action: 'check_balance' }     – query $PUMPVILLE balance
+ * POST /api/wallet.php { action: 'get_status' }        – return cached balances
+ * POST /api/wallet.php { action: 'bridge_mooncoin', amount } – queue on-chain bridge
  */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../includes/auth.php';
@@ -27,7 +26,7 @@ if ($action === 'check_balance') {
         ]);
     }
 
-    $balance = fetch_token_balance($player['wallet_address']);
+    $balance = fetch_token_balance($player['wallet_address'], TOKEN_MINT_ADDRESS);
     $bonus   = calculate_token_bonus($balance);
 
     // Schedule next daily check at a random time to prevent gaming
@@ -45,26 +44,77 @@ if ($action === 'check_balance') {
 }
 
 if ($action === 'get_status') {
+    // Also return on-chain MoonCoin balance if mint is configured
+    $mc_onchain = 0.0;
+    if (MOONCOIN_MINT_ADDRESS !== '') {
+        $mc_onchain = fetch_token_balance($player['wallet_address'], MOONCOIN_MINT_ADDRESS);
+    }
     api_response([
-        'wallet_address'  => $player['wallet_address'],
-        'token_balance'   => (float)$player['token_balance'],
-        'fuel_rate_bonus' => (float)$player['fuel_rate_bonus'],
-        'last_checked'    => $player['last_token_check'],
+        'wallet_address'    => $player['wallet_address'],
+        'token_balance'     => (float)$player['token_balance'],
+        'fuel_rate_bonus'   => (float)$player['fuel_rate_bonus'],
+        'mooncoin_balance'  => (float)$player['mooncoin_balance'],
+        'mooncoin_onchain'  => $mc_onchain,
+        'last_checked'      => $player['last_token_check'],
+    ]);
+}
+
+// ── Bridge in-game MoonCoins to on-chain SPL ─────────────────────────────────
+if ($action === 'bridge_mooncoin') {
+    $amount = (float)($input['amount'] ?? 0);
+    if ($amount < 100) api_error('Minimum bridge amount is 100 MoonCoins');
+    if ((float)$player['mooncoin_balance'] < $amount) api_error('Insufficient MoonCoin balance');
+
+    $fee_pct   = MOONCOIN_BRIDGE_FEE_PCT / 100.0;
+    $fee       = round($amount * $fee_pct, 4);
+    $after_fee = round($amount - $fee, 4);
+
+    $db->beginTransaction();
+    try {
+        $db->prepare('UPDATE players SET mooncoin_balance = mooncoin_balance - ? WHERE id = ?')
+           ->execute([$amount, $player['id']]);
+
+        // Log the bridge request (processed by cron / admin once token is live)
+        $db->prepare(
+            "INSERT INTO activity_log (player_id, action, details) VALUES (?, 'mooncoin_bridge_request', ?)"
+        )->execute([$player['id'], json_encode([
+            'amount'    => $amount,
+            'fee'       => $fee,
+            'after_fee' => $after_fee,
+            'wallet'    => $player['wallet_address'],
+            'status'    => 'pending',
+            'requested_at' => date('Y-m-d H:i:s'),
+        ])]);
+
+        $db->commit();
+    } catch (\Exception $e) {
+        $db->rollBack();
+        api_error('Bridge request failed');
+    }
+
+    api_response([
+        'success'   => true,
+        'amount'    => $amount,
+        'fee'       => $fee,
+        'after_fee' => $after_fee,
+        'wallet'    => $player['wallet_address'],
+        'note'      => 'Bridge request queued. Tokens will be airdropped once the MoonCoin SPL token launches.',
     ]);
 }
 
 api_error('Unknown action');
 
 // ── Solana RPC balance query ───────────────────────────────────────────────────
-function fetch_token_balance(string $wallet_address): float {
-    // getTokenAccountsByOwner: find token accounts for this mint
+function fetch_token_balance(string $wallet_address, string $mint_address): float {
+    if (!$mint_address) return 0.0;
+
     $payload = json_encode([
         'jsonrpc' => '2.0',
         'id'      => 1,
         'method'  => 'getTokenAccountsByOwner',
         'params'  => [
             $wallet_address,
-            ['mint' => TOKEN_MINT_ADDRESS],
+            ['mint' => $mint_address],
             ['encoding' => 'jsonParsed'],
         ],
     ]);
@@ -85,12 +135,13 @@ function fetch_token_balance(string $wallet_address): float {
 
     if ($err || !$result) return 0.0;
 
-    $data = json_decode($result, true);
+    $data     = json_decode($result, true);
     $accounts = $data['result']['value'] ?? [];
-    $total = 0.0;
+    $total    = 0.0;
     foreach ($accounts as $acc) {
         $ui = $acc['account']['data']['parsed']['info']['tokenAmount']['uiAmount'] ?? 0;
         $total += (float)$ui;
     }
     return $total;
 }
+

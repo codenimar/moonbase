@@ -132,7 +132,208 @@ function building_definitions(): array {
     ];
 }
 
-// ── Token bonus calculation ───────────────────────────────────────────────────
+// ── Research tree definitions ──────────────────────────────────────────────
+function research_tree_definitions(): array {
+    return [
+        // ── Production branch ──────────────────────────────────────────
+        'mining_efficiency' => [
+            'name'        => 'Mining Efficiency',
+            'description' => 'Increases mineral production rate by 20% per level.',
+            'category'    => 'production',
+            'max_level'   => 5,
+            'requires_lab_level' => 1,
+            'prerequisite'=> null,
+            'levels'      => [
+                1 => ['cost' => ['fuel' => 500,  'minerals' => 200,  'mooncoin' => 300],  'research_time' => 1800,  'bonus' => 0.20],
+                2 => ['cost' => ['fuel' => 1500, 'minerals' => 600,  'mooncoin' => 900],  'research_time' => 5400,  'bonus' => 0.40],
+                3 => ['cost' => ['fuel' => 4000, 'minerals' => 1500, 'mooncoin' => 2500], 'research_time' => 14400, 'bonus' => 0.60],
+                4 => ['cost' => ['fuel' => 10000,'minerals' => 4000, 'mooncoin' => 7000], 'research_time' => 36000, 'bonus' => 0.80],
+                5 => ['cost' => ['fuel' => 25000,'minerals' => 10000,'mooncoin' => 20000],'research_time' => 86400, 'bonus' => 1.00],
+            ],
+        ],
+        'fuel_synthesis' => [
+            'name'        => 'Fuel Synthesis',
+            'description' => 'Boosts Fuel Plant output by 15% per level.',
+            'category'    => 'production',
+            'max_level'   => 5,
+            'requires_lab_level' => 1,
+            'prerequisite'=> null,
+            'levels'      => [
+                1 => ['cost' => ['fuel' => 400,  'minerals' => 300,  'mooncoin' => 400],  'research_time' => 2400,  'bonus' => 0.15],
+                2 => ['cost' => ['fuel' => 1200, 'minerals' => 900,  'mooncoin' => 1200], 'research_time' => 7200,  'bonus' => 0.30],
+                3 => ['cost' => ['fuel' => 3500, 'minerals' => 2500, 'mooncoin' => 3500], 'research_time' => 18000, 'bonus' => 0.45],
+                4 => ['cost' => ['fuel' => 9000, 'minerals' => 6500, 'mooncoin' => 9000], 'research_time' => 43200, 'bonus' => 0.60],
+                5 => ['cost' => ['fuel' => 22000,'minerals' => 15000,'mooncoin' => 22000],'research_time' => 86400, 'bonus' => 0.75],
+            ],
+        ],
+        'storage_compression' => [
+            'name'        => 'Storage Compression',
+            'description' => 'Increases all storage caps by 25% per level.',
+            'category'    => 'production',
+            'max_level'   => 3,
+            'requires_lab_level' => 2,
+            'prerequisite'=> 'mining_efficiency',
+            'levels'      => [
+                1 => ['cost' => ['fuel' => 2000, 'minerals' => 1000, 'mooncoin' => 1500], 'research_time' => 7200,  'bonus' => 0.25],
+                2 => ['cost' => ['fuel' => 6000, 'minerals' => 3000, 'mooncoin' => 5000], 'research_time' => 21600, 'bonus' => 0.50],
+                3 => ['cost' => ['fuel' => 15000,'minerals' => 8000, 'mooncoin' => 12000],'research_time' => 57600, 'bonus' => 0.75],
+            ],
+        ],
+        // ── Defense branch ────────────────────────────────────────────
+        'tower_reinforcement' => [
+            'name'        => 'Tower Reinforcement',
+            'description' => 'Increases Defense Tower defense value by 30% per level.',
+            'category'    => 'defense',
+            'max_level'   => 5,
+            'requires_lab_level' => 2,
+            'prerequisite'=> null,
+            'levels'      => [
+                1 => ['cost' => ['fuel' => 600,  'minerals' => 500,  'mooncoin' => 800],  'research_time' => 3600,  'bonus' => 0.30],
+                2 => ['cost' => ['fuel' => 2000, 'minerals' => 1800, 'mooncoin' => 2500], 'research_time' => 10800, 'bonus' => 0.60],
+                3 => ['cost' => ['fuel' => 6000, 'minerals' => 5000, 'mooncoin' => 7500], 'research_time' => 28800, 'bonus' => 0.90],
+                4 => ['cost' => ['fuel' => 15000,'minerals' => 13000,'mooncoin' => 20000],'research_time' => 64800, 'bonus' => 1.20],
+                5 => ['cost' => ['fuel' => 35000,'minerals' => 30000,'mooncoin' => 50000],'research_time' => 129600,'bonus' => 1.50],
+            ],
+        ],
+        'shield_matrix' => [
+            'name'        => 'Shield Matrix',
+            'description' => 'Adds a passive shield that absorbs 10% of incoming raid damage per level.',
+            'category'    => 'defense',
+            'max_level'   => 3,
+            'requires_lab_level' => 3,
+            'prerequisite'=> 'tower_reinforcement',
+            'levels'      => [
+                1 => ['cost' => ['fuel' => 5000, 'minerals' => 4000, 'mooncoin' => 6000], 'research_time' => 14400, 'bonus' => 0.10],
+                2 => ['cost' => ['fuel' => 15000,'minerals' => 12000,'mooncoin' => 18000],'research_time' => 43200, 'bonus' => 0.20],
+                3 => ['cost' => ['fuel' => 40000,'minerals' => 32000,'mooncoin' => 50000],'research_time' => 115200,'bonus' => 0.30],
+            ],
+        ],
+        // ── Offense branch ────────────────────────────────────────────
+        'raid_tactics' => [
+            'name'        => 'Raid Tactics',
+            'description' => 'Increases raid attack power by 25% per level.',
+            'category'    => 'offense',
+            'max_level'   => 5,
+            'requires_lab_level' => 2,
+            'prerequisite'=> null,
+            'levels'      => [
+                1 => ['cost' => ['fuel' => 800,  'minerals' => 600,  'mooncoin' => 1000], 'research_time' => 4800,  'bonus' => 0.25],
+                2 => ['cost' => ['fuel' => 2500, 'minerals' => 2000, 'mooncoin' => 3000], 'research_time' => 14400, 'bonus' => 0.50],
+                3 => ['cost' => ['fuel' => 7000, 'minerals' => 5500, 'mooncoin' => 8500], 'research_time' => 36000, 'bonus' => 0.75],
+                4 => ['cost' => ['fuel' => 18000,'minerals' => 14000,'mooncoin' => 22000],'research_time' => 86400, 'bonus' => 1.00],
+                5 => ['cost' => ['fuel' => 45000,'minerals' => 35000,'mooncoin' => 55000],'research_time' => 172800,'bonus' => 1.25],
+            ],
+        ],
+        // ── Economy branch ────────────────────────────────────────────
+        'market_protocols' => [
+            'name'        => 'Market Protocols',
+            'description' => 'Reduces marketplace fee by 2% per level (min 2%).',
+            'category'    => 'economy',
+            'max_level'   => 4,
+            'requires_lab_level' => 1,
+            'prerequisite'=> null,
+            'levels'      => [
+                1 => ['cost' => ['fuel' => 300,  'minerals' => 200,  'mooncoin' => 500],  'research_time' => 1200,  'bonus' => 2],
+                2 => ['cost' => ['fuel' => 1000, 'minerals' => 700,  'mooncoin' => 1500], 'research_time' => 3600,  'bonus' => 4],
+                3 => ['cost' => ['fuel' => 3000, 'minerals' => 2000, 'mooncoin' => 4500], 'research_time' => 10800, 'bonus' => 6],
+                4 => ['cost' => ['fuel' => 8000, 'minerals' => 5500, 'mooncoin' => 12000],'research_time' => 28800, 'bonus' => 8],
+            ],
+        ],
+        'mooncoin_staking' => [
+            'name'        => 'MoonCoin Staking',
+            'description' => 'Earn 1% of current balance per hour as passive MoonCoin income per level.',
+            'category'    => 'economy',
+            'max_level'   => 3,
+            'requires_lab_level' => 3,
+            'prerequisite'=> 'market_protocols',
+            'levels'      => [
+                1 => ['cost' => ['fuel' => 4000, 'minerals' => 3000, 'mooncoin' => 5000], 'research_time' => 10800, 'bonus' => 0.01],
+                2 => ['cost' => ['fuel' => 12000,'minerals' => 9000, 'mooncoin' => 15000],'research_time' => 32400, 'bonus' => 0.02],
+                3 => ['cost' => ['fuel' => 30000,'minerals' => 22000,'mooncoin' => 40000],'research_time' => 86400, 'bonus' => 0.03],
+            ],
+        ],
+    ];
+}
+
+// ── Defense power calculation ─────────────────────────────────────────────
+/**
+ * Returns the total defense power for a player considering their defense towers
+ * and any tower_reinforcement research bonus.
+ */
+function calculate_player_defense(int $player_id): int {
+    $db   = get_db();
+    $defs = building_definitions();
+
+    $stmt = $db->prepare(
+        "SELECT level FROM buildings WHERE player_id = ? AND building_type = 'defense_tower' AND is_active = 1"
+    );
+    $stmt->execute([$player_id]);
+    $towers = $stmt->fetchAll();
+
+    $base_defense = 0;
+    foreach ($towers as $t) {
+        $lvl = (int)$t['level'];
+        $base_defense += $defs['defense_tower']['levels'][$lvl]['defense'] ?? 0;
+    }
+
+    // Apply tower_reinforcement research bonus
+    $res_stmt = $db->prepare(
+        "SELECT level FROM research WHERE player_id = ? AND tech_key = 'tower_reinforcement'"
+    );
+    $res_stmt->execute([$player_id]);
+    $tech = $res_stmt->fetch();
+    $bonus_multiplier = 1.0;
+    if ($tech) {
+        $tree  = research_tree_definitions();
+        $bonus = $tree['tower_reinforcement']['levels'][(int)$tech['level']]['bonus'] ?? 0;
+        $bonus_multiplier = 1.0 + $bonus;
+    }
+
+    // Shield matrix passive absorption
+    $shield_stmt = $db->prepare(
+        "SELECT level FROM research WHERE player_id = ? AND tech_key = 'shield_matrix'"
+    );
+    $shield_stmt->execute([$player_id]);
+    $shield_tech = $shield_stmt->fetch();
+    $shield_bonus = 0.0;
+    if ($shield_tech) {
+        $tree         = research_tree_definitions();
+        $shield_bonus = $tree['shield_matrix']['levels'][(int)$shield_tech['level']]['bonus'] ?? 0;
+    }
+
+    return (int)round($base_defense * $bonus_multiplier * (1.0 + $shield_bonus));
+}
+
+// ── Attack power calculation ──────────────────────────────────────────────
+/**
+ * Returns the attack power for a player (base = player level × 10,
+ * boosted by raid_tactics research).
+ */
+function calculate_player_attack(int $player_id): int {
+    $db     = get_db();
+    $player = $db->prepare('SELECT level FROM players WHERE id = ?');
+    $player->execute([$player_id]);
+    $row = $player->fetch();
+    if (!$row) return 0;
+
+    $base_attack = (int)$row['level'] * 10;
+
+    $stmt = $db->prepare(
+        "SELECT level FROM research WHERE player_id = ? AND tech_key = 'raid_tactics'"
+    );
+    $stmt->execute([$player_id]);
+    $tech = $stmt->fetch();
+    $multiplier = 1.0;
+    if ($tech) {
+        $tree       = research_tree_definitions();
+        $bonus      = $tree['raid_tactics']['levels'][(int)$tech['level']]['bonus'] ?? 0;
+        $multiplier = 1.0 + $bonus;
+    }
+
+    return (int)round($base_attack * $multiplier);
+}
+
+// ── Token bonus calculation ───────────────────────────────────────────────
 function calculate_token_bonus(float $token_balance): float {
     $tiers = TOKEN_BONUS_TIERS;
     krsort($tiers);

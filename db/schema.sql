@@ -147,6 +147,55 @@ CREATE TABLE IF NOT EXISTS activity_log (
     INDEX idx_player_time (player_id, created_at)
 ) ENGINE=InnoDB;
 
+-- PvP raid log
+CREATE TABLE IF NOT EXISTS pvp_raids (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    attacker_id     INT UNSIGNED NOT NULL,
+    defender_id     INT UNSIGNED NOT NULL,
+    attack_power    INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Attacker combined offense score',
+    defense_power   INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Defender combined defense score',
+    outcome         ENUM('attacker_win','defender_win','draw') DEFAULT NULL,
+    loot_fuel       DECIMAL(20,4) NOT NULL DEFAULT 0,
+    loot_minerals   DECIMAL(20,4) NOT NULL DEFAULT 0,
+    loot_metal      DECIMAL(20,4) NOT NULL DEFAULT 0,
+    status          ENUM('pending','resolved') NOT NULL DEFAULT 'pending',
+    started_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_at     DATETIME DEFAULT NULL,
+    FOREIGN KEY (attacker_id) REFERENCES players(id) ON DELETE CASCADE,
+    FOREIGN KEY (defender_id) REFERENCES players(id) ON DELETE CASCADE,
+    INDEX idx_attacker (attacker_id),
+    INDEX idx_defender (defender_id),
+    INDEX idx_status   (status)
+) ENGINE=InnoDB;
+
+-- Alliances / guilds
+CREATE TABLE IF NOT EXISTS alliances (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name        VARCHAR(64) NOT NULL UNIQUE,
+    tag         VARCHAR(8) NOT NULL UNIQUE COMMENT 'Short tag shown in leaderboard',
+    description TEXT,
+    founder_id  INT UNSIGNED NOT NULL,
+    mooncoin_bank DECIMAL(20,4) NOT NULL DEFAULT 0 COMMENT 'Shared alliance treasury',
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (founder_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS alliance_members (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    alliance_id INT UNSIGNED NOT NULL,
+    player_id   INT UNSIGNED NOT NULL UNIQUE COMMENT 'One alliance per player',
+    role        ENUM('founder','officer','member') NOT NULL DEFAULT 'member',
+    joined_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (alliance_id) REFERENCES alliances(id) ON DELETE CASCADE,
+    FOREIGN KEY (player_id)   REFERENCES players(id)   ON DELETE CASCADE,
+    INDEX idx_alliance (alliance_id)
+) ENGINE=InnoDB;
+
+-- Add alliance_id to players (nullable FK to alliances)
+ALTER TABLE players ADD COLUMN IF NOT EXISTS alliance_id INT UNSIGNED DEFAULT NULL AFTER metal_storage_cap;
+ALTER TABLE players ADD CONSTRAINT IF NOT EXISTS fk_player_alliance
+    FOREIGN KEY (alliance_id) REFERENCES alliances(id) ON DELETE SET NULL;
+
 -- Insert a sample community event
 INSERT INTO events (name, description, event_type, target_amount, prize_pool, min_level, start_time, end_time, status)
 VALUES (
