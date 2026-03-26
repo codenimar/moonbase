@@ -182,7 +182,7 @@ if (!$authed) {
 
 <script>
 // Bridge fee constant exposed to JS
-const MOONCOIN_BRIDGE_FEE = <?= (int)MOONCOIN_BRIDGE_FEE_PCT ?>;
+const MOONCOIN_BRIDGE_FEE = <?= (float)MOONCOIN_BRIDGE_FEE_PCT ?>;
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 (async () => {

@@ -63,7 +63,7 @@ if ($method === 'POST') {
         $defense = calculate_player_defense((int)$defender['id']);
 
         // Resolve immediately with some randomness (±20%)
-        $rand_factor = 0.80 + lcg_value() * 0.40;
+        $rand_factor = random_int(80, 120) / 100.0;
         $effective_attack = (int)round($attack * $rand_factor);
 
         if ($effective_attack > $defense) {

@@ -560,7 +560,7 @@ const UI = (() => {
         <h4 style="font-size:12px;color:var(--accent-cyan)">On-chain MoonCoin SPL Token</h4>
         <p style="font-size:11px;color:var(--text-dim);margin-bottom:10px">
           Bridge your in-game MoonCoins to real on-chain SPL tokens.
-          A ${typeof MOONCOIN_BRIDGE_FEE !== 'undefined' ? MOONCOIN_BRIDGE_FEE : 5}% burn fee applies.
+          A ${typeof MOONCOIN_BRIDGE_FEE !== 'undefined' ? MOONCOIN_BRIDGE_FEE : ''}% burn fee applies.
         </p>
         <button class="btn btn-primary w-full" onclick="GameUI.showBridgeModal()">
           🌉 Bridge to On-chain

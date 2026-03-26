@@ -202,7 +202,7 @@ function display_name(array $row, string $wallet_col = 'wallet_address', string 
           <td>
             <strong><?= display_name($p) ?></strong>
             <div style="font-size:10px;color:var(--text-dim);font-family:monospace">
-              <?= htmlspecialchars(shorten($p['wallet_address'])) ?>
+              <?= htmlspecialchars(shorten($p['wallet_address'] ?? '')) ?>
             </div>
           </td>
           <td>
@@ -306,7 +306,7 @@ function display_name(array $row, string $wallet_col = 'wallet_address', string 
             <?= $loot ? htmlspecialchars(implode(', ', $loot)) : '<span class="text-dim">none</span>' ?>
           </td>
           <td style="font-size:11px;color:var(--text-dim)">
-            <?= htmlspecialchars(date('M j, H:i', strtotime($r['resolved_at'] ?? 'now'))) ?>
+            <?= $r['resolved_at'] ? htmlspecialchars(date('M j, H:i', strtotime($r['resolved_at']))) : '<span class="text-dim">Pending</span>' ?>
           </td>
         </tr>
         <?php endforeach; ?>

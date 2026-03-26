@@ -75,15 +75,16 @@ if ($action === 'bridge_mooncoin') {
            ->execute([$amount, $player['id']]);
 
         // Log the bridge request (processed by cron / admin once token is live)
+        // Use NOW() from DB to avoid PHP/MySQL timezone inconsistencies
         $db->prepare(
-            "INSERT INTO activity_log (player_id, action, details) VALUES (?, 'mooncoin_bridge_request', ?)"
+            "INSERT INTO activity_log (player_id, action, details)
+             SELECT ?, 'mooncoin_bridge_request', JSON_SET(?, '$.requested_at', DATE_FORMAT(NOW(),'%Y-%m-%dT%T'))"
         )->execute([$player['id'], json_encode([
             'amount'    => $amount,
             'fee'       => $fee,
             'after_fee' => $after_fee,
             'wallet'    => $player['wallet_address'],
             'status'    => 'pending',
-            'requested_at' => date('Y-m-d H:i:s'),
         ])]);
 
         $db->commit();

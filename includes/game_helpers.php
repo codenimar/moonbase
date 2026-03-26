@@ -241,7 +241,7 @@ function research_tree_definitions(): array {
         ],
         'mooncoin_staking' => [
             'name'        => 'MoonCoin Staking',
-            'description' => 'Earn 1% of current balance per hour as passive MoonCoin income per level.',
+            'description' => 'Earn passive MoonCoin income: each level adds +1% of your balance per hour (total at max level: +3%/hr).',
             'category'    => 'economy',
             'max_level'   => 3,
             'requires_lab_level' => 3,

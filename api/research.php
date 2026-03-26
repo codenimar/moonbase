@@ -196,7 +196,8 @@ if ($method === 'POST') {
             ])]);
 
             $db->commit();
-            add_experience((int)$player['id'], 100 * $new_level);
+            // XP reward: 50 base + 25 per level, capped at 250
+            add_experience((int)$player['id'], min(250, 50 + 25 * $new_level));
         } catch (\Exception $e) {
             $db->rollBack();
             api_error('Failed to complete research');

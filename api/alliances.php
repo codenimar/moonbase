@@ -106,7 +106,7 @@ if ($method === 'POST') {
             $db->commit();
         } catch (\PDOException $e) {
             $db->rollBack();
-            if (str_contains($e->getMessage(), 'Duplicate')) {
+            if ($e->getCode() == '23000') {
                 api_error('Alliance name or tag already taken');
             }
             api_error('Failed to create alliance');

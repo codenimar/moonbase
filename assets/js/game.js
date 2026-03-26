@@ -302,9 +302,10 @@ class GameScene extends Phaser.Scene {
       delete this._touchPts[ptr.id];
       const ptCount = Object.keys(this._touchPts).length;
       if (ptCount === 0) {
-        this._camDrag   = false;
-        this._touchPan  = false;
-        this._pinchDist = null;
+        this._camDrag             = false;
+        this._touchPan            = false;
+        this._pinchDist           = null;
+        this._singleTapCancelled  = false;  // reset so next tap works
       }
       if (ptCount < 2) { this._pinchDist = null; }
       if (ptr.rightButtonReleased() || ptr.middleButtonReleased()) {
