@@ -193,7 +193,7 @@ CREATE TABLE IF NOT EXISTS alliance_members (
 
 -- Add alliance_id to players (nullable FK to alliances)
 ALTER TABLE players ADD COLUMN IF NOT EXISTS alliance_id INT UNSIGNED DEFAULT NULL AFTER metal_storage_cap;
-ALTER TABLE players ADD CONSTRAINT IF NOT EXISTS fk_player_alliance
+ALTER TABLE players ADD CONSTRAINT fk_player_alliance
     FOREIGN KEY (alliance_id) REFERENCES alliances(id) ON DELETE SET NULL;
 
 -- Widen session_token to fit the HMAC-based token (145-161 chars; previously too narrow at 128)
