@@ -2,6 +2,7 @@
 
 # PHP config with secrets
 config/config.local.php
+config/cofig.local.php
 
 # Dependencies / vendor
 vendor/

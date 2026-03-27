@@ -7,6 +7,14 @@
  *   { action: 'remove',  building_id }
  */
 header('Content-Type: application/json');
+
+set_exception_handler(function (\Throwable $e) {
+    http_response_code(500);
+    error_log('Moonbase API error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    echo json_encode(['error' => 'An internal server error occurred. Please try again.']);
+    exit;
+});
+
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/game_helpers.php';
 
