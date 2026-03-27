@@ -10,7 +10,11 @@ header('Content-Type: application/json');
 set_exception_handler(function (\Throwable $e) {
     http_response_code(500);
     error_log('Moonbase API error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
-    echo json_encode(['error' => 'An internal server error occurred. Please try again.']);
+    $msg = 'An internal server error occurred. Please try again.';
+    if (defined('DEBUG') && DEBUG) {
+        $msg .= ' [Debug: ' . $e->getMessage() . ' in ' . basename($e->getFile()) . ':' . $e->getLine() . ']';
+    }
+    echo json_encode(['error' => $msg]);
     exit;
 });
 
@@ -86,7 +90,7 @@ switch ($action) {
         // Check if new player (needs initial command center)
         $buildings = $db->prepare('SELECT COUNT(*) as cnt FROM buildings WHERE player_id = ?');
         $buildings->execute([$player['id']]);
-        $is_new = $buildings->fetch()['cnt'] === 0;
+        $is_new = (int)$buildings->fetch()['cnt'] === 0;
 
         if ($is_new) {
             // Place initial command center at grid center
@@ -94,8 +98,8 @@ switch ($action) {
             $cy = (int)(GRID_ROWS / 2) - 1;
             $db->prepare(
                 'INSERT INTO buildings (player_id, building_type, level, grid_x, grid_y)
-                 VALUES (?, "command_center", 1, ?, ?)'
-            )->execute([$player['id'], $cx, $cy]);
+                 VALUES (?, ?, 1, ?, ?)'
+            )->execute([$player['id'], 'command_center', $cx, $cy]);
         }
 
         api_response([
