@@ -53,7 +53,7 @@ function verify_solana_signature(string $message, string $signature_b58, string 
         $pubkey_bytes = base58_decode($pubkey_b58);
         if (strlen($sig_bytes) !== 64 || strlen($pubkey_bytes) !== 32) return false;
         return sodium_crypto_sign_verify_detached($sig_bytes, $message, $pubkey_bytes);
-    } catch (\Exception $e) {
+    } catch (\Throwable $e) {
         return false;
     }
 }

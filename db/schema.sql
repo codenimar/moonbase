@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS players (
     last_token_check DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     next_token_check DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Next scheduled daily check time (randomised)',
     nonce           VARCHAR(64) DEFAULT NULL COMMENT 'Challenge nonce for wallet auth',
-    session_token   VARCHAR(128) DEFAULT NULL,
+    session_token   VARCHAR(256) DEFAULT NULL,
     session_expires DATETIME DEFAULT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -195,6 +195,9 @@ CREATE TABLE IF NOT EXISTS alliance_members (
 ALTER TABLE players ADD COLUMN IF NOT EXISTS alliance_id INT UNSIGNED DEFAULT NULL AFTER metal_storage_cap;
 ALTER TABLE players ADD CONSTRAINT IF NOT EXISTS fk_player_alliance
     FOREIGN KEY (alliance_id) REFERENCES alliances(id) ON DELETE SET NULL;
+
+-- Widen session_token to fit the HMAC-based token (145-161 chars; previously too narrow at 128)
+ALTER TABLE players MODIFY COLUMN session_token VARCHAR(256) DEFAULT NULL;
 
 -- Insert a sample community event
 INSERT INTO events (name, description, event_type, target_amount, prize_pool, min_level, start_time, end_time, status)
