@@ -14,9 +14,9 @@ if (file_exists(__DIR__ . '/config.local.php')) {
 // ── Database ─────────────────────────────────────────────────────────────────
 defined('DB_HOST')    || define('DB_HOST',    getenv('DB_HOST')    ?: 'localhost');
 defined('DB_PORT')    || define('DB_PORT',    (int)(getenv('DB_PORT') ?: 3306));
-defined('DB_NAME')    || define('DB_NAME',    getenv('DB_NAME')    ?: 'moonbase');
-defined('DB_USER')    || define('DB_USER',    getenv('DB_USER')    ?: 'moonbase_user');
-defined('DB_PASS')    || define('DB_PASS',    getenv('DB_PASS')    ?: 'change_me_in_production');
+defined('DB_NAME')    || define('DB_NAME',    getenv('DB_NAME')    ?: 'u814372771_moon');
+defined('DB_USER')    || define('DB_USER',    getenv('DB_USER')    ?: 'u814372771_base');
+defined('DB_PASS')    || define('DB_PASS',    getenv('DB_PASS')    ?: '>tKSg=ju3lR?');
 defined('DB_SOCKET')  || define('DB_SOCKET',  getenv('DB_SOCKET')  ?: '');
 defined('DB_CHARSET') || define('DB_CHARSET', 'utf8mb4');
 
