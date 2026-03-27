@@ -9,6 +9,11 @@
 // Load local overrides FIRST so they take precedence over defaults below
 if (file_exists(__DIR__ . '/config.local.php')) {
     require_once __DIR__ . '/config.local.php';
+} elseif (file_exists(__DIR__ . '/cofig.local.php')) {
+    // Fallback: handle historical typo in filename ('cofig' instead of 'config').
+    // Rename config/cofig.local.php to config/config.local.php to remove this fallback.
+    error_log('Moonbase: loading config/cofig.local.php (typo filename). Rename to config/config.local.php.');
+    require_once __DIR__ . '/cofig.local.php';
 }
 
 // ── Database ─────────────────────────────────────────────────────────────────
