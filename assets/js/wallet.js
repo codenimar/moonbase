@@ -59,8 +59,11 @@ const WalletManager = (() => {
       throw new Error('Message signing rejected: ' + (err.message || err));
     }
 
-    // Encode signature as base58 (Phantom returns Uint8Array)
-    const sigBase58 = bs58.encode(signedMsg.signature);
+    // Encode signature as base58.
+    // Phantom returns { signature: Uint8Array }; Solflare returns { data: Uint8Array }.
+    const sigBytes = signedMsg.signature ?? signedMsg.data;
+    if (!sigBytes) throw new Error('Wallet did not return signature bytes');
+    const sigBase58 = bs58.encode(sigBytes);
 
     // Step 3: verify with server
     const verifyRes = await fetch('/api/auth.php', {

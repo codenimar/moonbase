@@ -13,13 +13,8 @@ $wallet  = null;
 if ($session) {
     $w = verify_session_token($session);
     if ($w) {
-        $db    = get_db();
-        $stmt  = $db->prepare('SELECT id FROM players WHERE wallet_address = ? AND session_token = ? AND (session_expires IS NULL OR session_expires > NOW())');
-        $stmt->execute([$w, $session]);
-        if ($stmt->fetch()) {
-            $authed = true;
-            $wallet = $w;
-        }
+        $authed = true;
+        $wallet = $w;
     }
 }
 

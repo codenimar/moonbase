@@ -9,7 +9,7 @@ require_once __DIR__ . '/db.php';
 function base58_decode(string $input): string {
     $alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
     $base = strlen($alphabet);
-    $bytes = [0];
+    $bytes = [];
     for ($i = 0; $i < strlen($input); $i++) {
         $c = strpos($alphabet, $input[$i]);
         if ($c === false) throw new \InvalidArgumentException('Invalid base58 character');
@@ -58,23 +58,25 @@ function verify_solana_signature(string $message, string $signature_b58, string 
     }
 }
 
-// ── Session token (HMAC-based) ────────────────────────────────────────────────
+// ── Session token (random, opaque) ───────────────────────────────────────────
 function create_session_token(string $wallet_address): string {
-    $payload = $wallet_address . '|' . time() . '|' . bin2hex(random_bytes(8));
-    return hash_hmac('sha256', $payload, SESSION_SECRET) . '.' . base64_encode($payload);
+    // 64-char random hex string – fits in VARCHAR(64) and never overflows the column.
+    // The wallet address is NOT embedded in the token; it is retrieved via DB lookup.
+    return bin2hex(random_bytes(32));
 }
 
 function verify_session_token(string $token): ?string {
-    $parts = explode('.', $token, 2);
-    if (count($parts) !== 2) return null;
-    [$mac, $b64] = $parts;
-    $payload = base64_decode($b64);
-    if (!$payload) return null;
-    $expected = hash_hmac('sha256', $payload, SESSION_SECRET);
-    if (!hash_equals($expected, $mac)) return null;
-    $bits = explode('|', $payload);
-    if (count($bits) < 3) return null;
-    return $bits[0]; // wallet address
+    // Basic format check before hitting the DB.
+    if (!preg_match('/^[0-9a-f]{64}$/', $token)) return null;
+    $db   = get_db();
+    $stmt = $db->prepare(
+        'SELECT wallet_address FROM players
+           WHERE session_token = ?
+             AND (session_expires IS NULL OR session_expires > NOW())'
+    );
+    $stmt->execute([$token]);
+    $row = $stmt->fetch();
+    return $row ? $row['wallet_address'] : null;
 }
 
 // ── Require authenticated player ─────────────────────────────────────────────
@@ -86,6 +88,7 @@ function require_auth(): array {
         echo json_encode(['error' => 'Unauthenticated']);
         exit;
     }
+    // verify_session_token does the DB lookup and expiry check in one query.
     $wallet = verify_session_token($token);
     if (!$wallet) {
         http_response_code(401);
@@ -99,11 +102,6 @@ function require_auth(): array {
     if (!$row) {
         http_response_code(401);
         echo json_encode(['error' => 'Session not found']);
-        exit;
-    }
-    if ($row['session_expires'] && strtotime($row['session_expires']) < time()) {
-        http_response_code(401);
-        echo json_encode(['error' => 'Session expired']);
         exit;
     }
     return $row;
