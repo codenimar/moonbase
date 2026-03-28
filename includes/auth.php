@@ -31,6 +31,23 @@ function base58_decode(string $input): string {
     return implode('', array_map('chr', $bytes));
 }
 
+// ── Schema helpers ────────────────────────────────────────────────────────────
+function has_session_expires_column(): bool {
+    static $hasColumn = null;
+    // Note: static cache is request-scoped under PHP-FPM; if the schema is
+    // changed at runtime, the next request will re-run this check.
+    if ($hasColumn !== null) return $hasColumn;
+    try {
+        $db = get_db();
+        // Lightweight existence check that works without INFORMATION_SCHEMA privileges
+        $db->query('SELECT session_expires FROM players LIMIT 0');
+        $hasColumn = true;
+    } catch (\Throwable $e) {
+        $hasColumn = false;
+    }
+    return $hasColumn;
+}
+
 // ── Nonce generation ──────────────────────────────────────────────────────────
 function generate_nonce(): string {
     return bin2hex(random_bytes(16));
@@ -69,12 +86,14 @@ function verify_session_token(string $token): ?string {
     // Basic format check before hitting the DB.
     if (!preg_match('/^[0-9a-f]{64}$/', $token)) return null;
     $db   = get_db();
-    $stmt = $db->prepare(
-        'SELECT wallet_address FROM players
-           WHERE session_token = ?
-             AND (session_expires IS NULL OR session_expires > NOW())'
-    );
-    $stmt->execute([$token]);
+    $hasExpiry = has_session_expires_column();
+    $sql  = 'SELECT wallet_address FROM players WHERE session_token = ?';
+    $params = [$token];
+    if ($hasExpiry) {
+        $sql .= ' AND (session_expires IS NULL OR session_expires > NOW())';
+    }
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
     $row = $stmt->fetch();
     return $row ? $row['wallet_address'] : null;
 }

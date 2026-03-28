@@ -77,9 +77,16 @@ switch ($action) {
         $token   = create_session_token($wallet);
         $expires = date('Y-m-d H:i:s', time() + SESSION_TTL);
 
-        $db->prepare(
-            'UPDATE players SET nonce = NULL, session_token = ?, session_expires = ? WHERE id = ?'
-        )->execute([$token, $expires, $player['id']]);
+        $hasExpiry = has_session_expires_column();
+        $sql = $hasExpiry
+            ? 'UPDATE players SET nonce = NULL, session_token = ?, session_expires = ? WHERE id = ?'
+            : 'UPDATE players SET nonce = NULL, session_token = ? WHERE id = ?';
+
+        $params = $hasExpiry
+            ? [$token, $expires, $player['id']]
+            : [$token, $player['id']];
+
+        $db->prepare($sql)->execute($params);
 
         // Set cookie
         setcookie(
@@ -115,8 +122,13 @@ switch ($action) {
     case 'logout': {
         $player = require_auth();
         $db     = get_db();
-        $db->prepare('UPDATE players SET session_token = NULL, session_expires = NULL WHERE id = ?')
-           ->execute([$player['id']]);
+        if (has_session_expires_column()) {
+            $db->prepare('UPDATE players SET session_token = NULL, session_expires = NULL WHERE id = ?')
+               ->execute([$player['id']]);
+        } else {
+            $db->prepare('UPDATE players SET session_token = NULL WHERE id = ?')
+               ->execute([$player['id']]);
+        }
         setcookie('moonbase_session', '', ['expires' => time() - 3600, 'path' => '/']);
         api_response(['success' => true]);
         break;
