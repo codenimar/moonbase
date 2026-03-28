@@ -166,8 +166,6 @@ if (!$authed) {
 <div id="toast-container" role="alert" aria-live="assertive"></div>
 
 <!-- ── Scripts ─────────────────────────────────────────────────────────── -->
-<!-- bs58 (Base58 for Solana signatures) -->
-<script src="https://cdn.jsdelivr.net/npm/bs58@5.0.0/dist/bs58.min.js"></script>
 <!-- Phaser 3 game engine -->
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
 <!-- Game scripts -->

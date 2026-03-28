@@ -3,6 +3,29 @@
  * Supports Phantom and Solflare browser wallets.
  */
 
+// ── Base58 encoder (Solana/Bitcoin alphabet) ─────────────────────────────────
+// Inline implementation removes the need for an external bs58 CDN dependency.
+const _B58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function _encodeBase58(bytes) {
+  const digits = [0];
+  for (let i = 0; i < bytes.length; i++) {
+    let carry = bytes[i];
+    for (let j = 0; j < digits.length; j++) {
+      carry += digits[j] << 8;
+      digits[j] = carry % 58;
+      carry = Math.floor(carry / 58);
+    }
+    while (carry > 0) {
+      digits.push(carry % 58);
+      carry = Math.floor(carry / 58);
+    }
+  }
+  let result = '';
+  for (let i = 0; i < bytes.length && bytes[i] === 0; i++) result += '1';
+  for (let i = digits.length - 1; i >= 0; i--) result += _B58_ALPHABET[digits[i]];
+  return result;
+}
+
 const WalletManager = (() => {
   let _provider  = null;
   let _wallet    = null; // { name, address, provider }
@@ -63,7 +86,7 @@ const WalletManager = (() => {
     // Phantom returns { signature: Uint8Array }; Solflare returns { data: Uint8Array }.
     const sigBytes = signedMsg.signature ?? signedMsg.data;
     if (!sigBytes) throw new Error('Wallet did not return signature bytes');
-    const sigBase58 = bs58.encode(sigBytes);
+    const sigBase58 = _encodeBase58(sigBytes);
 
     // Step 3: verify with server
     const verifyRes = await fetch('/api/auth.php', {
