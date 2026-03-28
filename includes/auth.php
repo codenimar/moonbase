@@ -57,14 +57,17 @@ function generate_nonce(): string {
 /**
  * Verify a Solana wallet sign-message response.
  *
- * Phantom encodes the signature in base58 and provides the raw bytes;
- * we accept both base58 and base64 signatures.
- *
  * @param string $message       The plaintext message that was signed
- * @param string $signature_b58 Base58-encoded signature (64 bytes)
- * @param string $pubkey_b58    Base58-encoded public key (32 bytes)
+ * @param string $signature_b58 Base58-encoded Ed25519 signature (64 bytes)
+ * @param string $pubkey_b58    Base58-encoded public key / wallet address (32 bytes)
  */
 function verify_solana_signature(string $message, string $signature_b58, string $pubkey_b58): bool {
+    if (!function_exists('sodium_crypto_sign_verify_detached')) {
+        throw new \RuntimeException(
+            'php-sodium extension is required for wallet authentication. ' .
+            'Install it with: apt-get install php-sodium  (or the equivalent for your OS).'
+        );
+    }
     try {
         $sig_bytes    = base58_decode($signature_b58);
         $pubkey_bytes = base58_decode($pubkey_b58);

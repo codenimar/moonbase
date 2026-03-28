@@ -83,9 +83,13 @@ const WalletManager = (() => {
     }
 
     // Encode signature as base58.
-    // Phantom returns { signature: Uint8Array }; Solflare returns { data: Uint8Array }.
-    const sigBytes = signedMsg.signature ?? signedMsg.data;
-    if (!sigBytes) throw new Error('Wallet did not return signature bytes');
+    // Phantom returns { signature: Uint8Array(64) }.
+    // Solflare ≥2022 returns { signature: Uint8Array(64) }.
+    // Solflare <2022 returns { data: Uint8Array } where data is the full nacl.sign()
+    // output: [64-byte signature][original message].  Extract only the first 64 bytes.
+    const rawSig = signedMsg.signature ?? signedMsg.data;
+    if (!rawSig || rawSig.length < 64) throw new Error('Wallet did not return a valid signature');
+    const sigBytes = rawSig.length > 64 ? rawSig.slice(0, 64) : rawSig;
     const sigBase58 = _encodeBase58(sigBytes);
 
     // Step 3: verify with server
