@@ -209,6 +209,36 @@ if (extension_loaded('sodium')) {
         // Also confirm a tampered message fails (sanity check)
         $invalid = sodium_crypto_sign_verify_detached($sig, $testMsg . 'tampered', $publicKey);
         $checks['sodium']['tamper_test'] = (!$invalid) ? 'ok — tampered message correctly rejected' : 'FAILED: tampered message was accepted';
+
+        // Full roundtrip test: base58_encode → base58_decode → verify_solana_signature
+        // This tests the complete authentication path the real login flow uses.
+        require_once __DIR__ . '/../includes/auth.php';
+        // Inline base58 encoder for the diagnostic (base58_encode is not part of the public API)
+        $diag_b58_encode = static function (string $data): string {
+            $alpha  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+            $digits = [];
+            foreach (array_values(unpack('C*', $data)) as $byte) {
+                $carry = $byte;
+                for ($j = count($digits) - 1; $j >= 0; $j--) {
+                    $carry += $digits[$j] * 256;
+                    $digits[$j] = $carry % 58;
+                    $carry = intdiv($carry, 58);
+                }
+                while ($carry > 0) { array_unshift($digits, $carry % 58); $carry = intdiv($carry, 58); }
+            }
+            $result = '';
+            foreach ($digits as $d) $result .= $alpha[$d];
+            return $result;
+        };
+        $nonce     = bin2hex(random_bytes(8));
+        $rtMsg     = "Sign this message to log in to Moonbase:\n\nWallet: test_rt\nNonce: {$nonce}";
+        $rtSig     = sodium_crypto_sign_detached($rtMsg, $secretKey);
+        $rtSigB58  = $diag_b58_encode($rtSig);
+        $rtPubB58  = $diag_b58_encode($publicKey);
+        $rtVerify  = verify_solana_signature($rtMsg, $rtSigB58, $rtPubB58);
+        $checks['sodium']['base58_roundtrip_test'] = $rtVerify
+            ? 'ok — base58 encode→decode→verify roundtrip works'
+            : 'FAILED: base58 roundtrip verify returned false';
     } catch (\Throwable $e) {
         $checks['sodium']['functional_test'] = 'FAILED: ' . $e->getMessage();
     }
