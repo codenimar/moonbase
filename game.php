@@ -196,6 +196,19 @@ const MOONCOIN_BRIDGE_FEE = <?= (float)MOONCOIN_BRIDGE_FEE_PCT ?>;
 // fails → …) is broken after MAX_LOAD_ATTEMPTS consecutive failures.
 const MAX_LOAD_ATTEMPTS = 3;
 
+function _safeSessionGet(key) {
+  try { return sessionStorage.getItem(key); } catch (_) { return null; }
+}
+function _safeSessionSet(key, value) {
+  try { sessionStorage.setItem(key, value); } catch (_) {}
+}
+function _safeSessionRemove(key) {
+  try { sessionStorage.removeItem(key); } catch (_) {}
+}
+function _safeLocalRemove(key) {
+  try { localStorage.removeItem(key); } catch (_) {}
+}
+
 function _showLoadError(message, redirectDelay = 4000) {
   const lo = document.getElementById('loading-overlay');
   if (!lo) { window.location.href = '/index.php'; return; }
@@ -212,17 +225,17 @@ function _showLoadError(message, redirectDelay = 4000) {
 
 function _bootstrapFailed(reason) {
   console.error('[Moonbase] Bootstrap failed:', reason);
-  const attempts = parseInt(sessionStorage.getItem('_mb_load_attempts') || '0') + 1;
+  const attempts = parseInt(_safeSessionGet('_mb_load_attempts') || '0', 10) + 1;
   if (attempts >= MAX_LOAD_ATTEMPTS) {
     // Too many consecutive failures – clear state and stop the redirect loop.
-    sessionStorage.removeItem('_mb_load_attempts');
-    try { localStorage.removeItem('moonbase_session'); } catch (_ignored) {}
+    _safeSessionRemove('_mb_load_attempts');
+    _safeLocalRemove('moonbase_session');
     _showLoadError(
       `Unable to start the game after ${MAX_LOAD_ATTEMPTS} attempts. Please check the browser console for details.`,
       6000,
     );
   } else {
-    sessionStorage.setItem('_mb_load_attempts', String(attempts));
+    _safeSessionSet('_mb_load_attempts', String(attempts));
     _showLoadError(String(reason && reason.message ? reason.message : reason), 3000);
   }
 }

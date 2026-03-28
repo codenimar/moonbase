@@ -26,10 +26,20 @@ function _encodeBase58(bytes) {
   return result;
 }
 
+function _safeStorageGet(storage, key) {
+  try { return storage.getItem(key); } catch (_) { return null; }
+}
+function _safeStorageSet(storage, key, value) {
+  try { storage.setItem(key, value); } catch (_) {}
+}
+function _safeStorageRemove(storage, key) {
+  try { storage.removeItem(key); } catch (_) {}
+}
+
 const WalletManager = (() => {
   let _provider  = null;
   let _wallet    = null; // { name, address, provider }
-  let _session   = localStorage.getItem('moonbase_session') || null;
+  let _session   = _safeStorageGet(localStorage, 'moonbase_session') || null;
 
   // ── Provider detection ───────────────────────────────────────────────────
   function detectProviders() {
@@ -102,7 +112,7 @@ const WalletManager = (() => {
     if (verifyData.error) throw new Error(verifyData.error);
 
     _session = verifyData.session_token;
-    localStorage.setItem('moonbase_session', _session);
+    _safeStorageSet(localStorage, 'moonbase_session', _session);
     return verifyData;
   }
 
@@ -119,7 +129,7 @@ const WalletManager = (() => {
     _session  = null;
     _provider = null;
     _wallet   = null;
-    localStorage.removeItem('moonbase_session');
+    _safeStorageRemove(localStorage, 'moonbase_session');
   }
 
   // ── Validate existing session ────────────────────────────────────────────
@@ -132,7 +142,7 @@ const WalletManager = (() => {
       const data = await apiGet('/api/game_state.php');
       if (data && !data.error) return true;
       _session = null;
-      localStorage.removeItem('moonbase_session');
+      _safeStorageRemove(localStorage, 'moonbase_session');
       return false;
     } catch (_) {
       return false;

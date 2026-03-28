@@ -101,6 +101,15 @@
     // ── Login flow ─────────────────────────────────────────────────────────
     const statusEl = document.getElementById('login-status');
     const btnsEl   = document.getElementById('wallet-btns');
+    function safeLocalGet(key) {
+      try { return localStorage.getItem(key); } catch (_) { return null; }
+    }
+    function safeLocalRemove(key) {
+      try { localStorage.removeItem(key); } catch (_) {}
+    }
+    function safeSessionGet(key) {
+      try { return sessionStorage.getItem(key); } catch (_) { return null; }
+    }
 
     function setStatus(msg, type='') {
       statusEl.textContent = msg;
@@ -109,12 +118,12 @@
 
     // Check existing session
     (async () => {
-      const session = localStorage.getItem('moonbase_session');
+      const session = safeLocalGet('moonbase_session');
       if (session) {
         // If game.php has been failing repeatedly (tracked via sessionStorage),
         // don't redirect to it again — show the login page instead so the
         // user can re-authenticate.  game.php clears this counter on success.
-        const failCount = parseInt(sessionStorage.getItem('_mb_load_attempts') || '0');
+        const failCount = parseInt(safeSessionGet('_mb_load_attempts') || '0', 10);
         if (failCount > 0) {
           // game.php has been failing – stop the auto-redirect and show the
           // login page so the user can re-authenticate.
@@ -124,7 +133,7 @@
           // permanently break the redirect loop.  The counter is only cleared
           // by GameScene.create() on a successful game start, or by
           // _bootstrapFailed once MAX_LOAD_ATTEMPTS is reached.
-          localStorage.removeItem('moonbase_session');
+          safeLocalRemove('moonbase_session');
           renderWalletButtons();
           return;
         }
@@ -135,7 +144,7 @@
           setTimeout(() => window.location.href = '/game.php', 800);
           return;
         }
-        localStorage.removeItem('moonbase_session');
+        safeLocalRemove('moonbase_session');
       }
       renderWalletButtons();
     })();
