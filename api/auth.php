@@ -77,11 +77,12 @@ switch ($action) {
         $token   = create_session_token($wallet);
         $expires = date('Y-m-d H:i:s', time() + SESSION_TTL);
 
-        $sql = has_session_expires_column()
+        $hasExpiry = has_session_expires_column();
+        $sql = $hasExpiry
             ? 'UPDATE players SET nonce = NULL, session_token = ?, session_expires = ? WHERE id = ?'
             : 'UPDATE players SET nonce = NULL, session_token = ? WHERE id = ?';
 
-        $params = has_session_expires_column()
+        $params = $hasExpiry
             ? [$token, $expires, $player['id']]
             : [$token, $player['id']];
 
