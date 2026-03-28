@@ -39,6 +39,7 @@ if (!$authed) {
   <div class="login-logo" style="margin-bottom:12px">🌕</div>
   <div class="loader-ring"></div>
   <p style="color:var(--text-secondary);font-size:14px">Loading Moonbase…</p>
+  <p id="loading-status" style="color:var(--text-dim);font-size:12px;margin:4px 0 0;min-height:1.4em"></p>
   <div style="width:200px;height:4px;background:rgba(26,74,122,0.3);border-radius:2px;margin-top:8px;overflow:hidden">
     <div id="loading-progress" style="height:100%;width:0;background:var(--accent-cyan);border-radius:2px;transition:width 0.2s"></div>
   </div>
@@ -209,6 +210,12 @@ function _safeLocalRemove(key) {
   try { localStorage.removeItem(key); } catch (_) {}
 }
 
+function setLoadingStatus(msg) {
+  const el = document.getElementById('loading-status');
+  if (el) el.textContent = msg;
+  console.info('[Moonbase] Loading step:', msg);
+}
+
 function _showLoadError(message, redirectDelay = 4000) {
   const lo = document.getElementById('loading-overlay');
   if (!lo) { window.location.href = '/index.php'; return; }
@@ -244,11 +251,13 @@ function _bootstrapFailed(reason) {
 (async () => {
   try {
   // Load initial game state
+  setLoadingStatus('Fetching game state from server…');
   const state = await apiGet('/api/game_state.php');
   if (!state || state.error) {
     _bootstrapFailed(state?.error || 'Server returned an error – please log in again.');
     return;
   }
+  setLoadingStatus('Initialising game state…');
   GameState.player       = state.player;
   GameState.buildings    = state.buildings;
   GameState.buildingDefs = state.building_defs;
@@ -258,6 +267,7 @@ function _bootstrapFailed(reason) {
   UI.updateHud(state.player, GameState.fuelRate);
 
   // Init Phaser
+  setLoadingStatus('Starting game engine…');
   initGame();
 
   // ── HUD button wiring ───────────────────────────────────────────────────
