@@ -75,9 +75,13 @@ class BootScene extends Phaser.Scene {
   constructor() { super({ key: 'BootScene' }); }
 
   preload() {
+    if (typeof setLoadingStatus === 'function') setLoadingStatus('Loading assets… 0%');
     this.load.on('progress', (v) => {
       const bar = document.getElementById('loading-progress');
       if (bar) bar.style.width = (v * 100).toFixed(0) + '%';
+      if (typeof setLoadingStatus === 'function') {
+        setLoadingStatus(`Loading assets… ${(v * 100).toFixed(0)}%`);
+      }
     });
 
     // Tiles
@@ -106,6 +110,7 @@ class BootScene extends Phaser.Scene {
   }
 
   create() {
+    if (typeof setLoadingStatus === 'function') setLoadingStatus('Assets loaded. Starting game scene…');
     this.scene.start('GameScene');
   }
 }
