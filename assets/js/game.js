@@ -117,6 +117,13 @@ class GameScene extends Phaser.Scene {
   constructor() { super({ key: 'GameScene' }); }
 
   create() {
+    // Hide the loading overlay as soon as GameScene starts so it is never
+    // left on screen if any subsequent setup step throws an error that
+    // Phaser catches internally (those errors would not reach the bootstrap
+    // try-catch, causing the overlay to remain visible forever).
+    const lo = document.getElementById('loading-overlay');
+    if (lo) lo.classList.add('hidden');
+
     window._gameScene = this;
 
     this._camDrag    = false;
@@ -131,10 +138,6 @@ class GameScene extends Phaser.Scene {
     this._setupInput();
     this._setupParticles();
     this._createSelectionIndicator();
-
-    // Hide loading overlay
-    const lo = document.getElementById('loading-overlay');
-    if (lo) lo.classList.add('hidden');
 
     // Sync initial buildings
     if (GameState.buildings.length) this.syncBuildings(GameState.buildings);
