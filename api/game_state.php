@@ -1,7 +1,10 @@
 <?php
+header('Content-Type: application/json');
+
 // Error handling (same as the other API files)
-set_exception_handler(function ($e) {
+set_exception_handler(function (\Throwable $e) {
     http_response_code(500);
+    error_log('Moonbase API error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
     $msg = 'An internal server error occurred. Please try again.';
     if (defined('DEBUG') && DEBUG) {
         $msg .= ' [Debug: ' . $e->getMessage() . ' in ' . basename($e->getFile()) . ':' . $e->getLine() . ']';
