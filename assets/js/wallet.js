@@ -7,7 +7,7 @@
 // Inline implementation removes the need for an external bs58 CDN dependency.
 const _B58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 function _encodeBase58(bytes) {
-  const digits = [0];
+  const digits = [];
   for (let i = 0; i < bytes.length; i++) {
     let carry = bytes[i];
     for (let j = 0; j < digits.length; j++) {
