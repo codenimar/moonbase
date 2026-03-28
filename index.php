@@ -111,6 +111,20 @@
     (async () => {
       const session = localStorage.getItem('moonbase_session');
       if (session) {
+        // If game.php has been failing repeatedly (tracked via sessionStorage),
+        // don't redirect to it again — show the login page instead so the
+        // user can re-authenticate.  game.php clears this counter on success.
+        const failCount = parseInt(sessionStorage.getItem('_mb_load_attempts') || '0');
+        if (failCount > 0) {
+          // The counter will be cleared by game.php on a successful start, or
+          // by the loop-breaker in _bootstrapFailed after MAX_LOAD_ATTEMPTS.
+          // On index.php, we only suppress the auto-redirect; the user can
+          // still click "Connect" to log in fresh.
+          localStorage.removeItem('moonbase_session');
+          sessionStorage.removeItem('_mb_load_attempts');
+          renderWalletButtons();
+          return;
+        }
         setStatus('Restoring session…');
         const valid = await WalletManager.validateSession();
         if (valid) {

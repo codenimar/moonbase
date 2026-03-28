@@ -106,7 +106,7 @@ if ($method === 'POST') {
                 'INSERT INTO pvp_raids
                    (attacker_id, defender_id, attack_power, defense_power,
                     outcome, loot_fuel, loot_minerals, loot_metal, status, resolved_at)
-                 VALUES (?,?,?,?,?,?,?,?,"resolved",NOW())'
+                 VALUES (?,?,?,?,?,?,?,?,\'resolved\',NOW())'
             );
             $ins->execute([
                 $player['id'], $defender['id'],

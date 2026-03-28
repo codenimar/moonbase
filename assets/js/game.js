@@ -124,6 +124,10 @@ class GameScene extends Phaser.Scene {
     const lo = document.getElementById('loading-overlay');
     if (lo) lo.classList.add('hidden');
 
+    // Game started successfully – clear the load-failure counter so the
+    // redirect-loop breaker resets for the next session.
+    try { sessionStorage.removeItem('_mb_load_attempts'); } catch (_ignored) {}
+
     window._gameScene = this;
 
     this._camDrag    = false;

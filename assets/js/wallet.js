@@ -181,8 +181,12 @@ async function apiPost(url, body) {
       },
       body: JSON.stringify(body),
     });
+    // Keep the abort signal alive while reading the response body.
+    // Clearing the timer before res.json() would allow the body read
+    // to hang indefinitely if the server sends headers but no body.
+    const data = await res.json();
     clearTimeout(timerId);
-    return res.json();
+    return data;
   } catch (err) {
     clearTimeout(timerId);
     throw err;
@@ -201,8 +205,10 @@ async function apiGet(url, params = {}) {
         ...(session ? { 'X-Session-Token': session } : {}),
       },
     });
+    // Keep the abort signal alive while reading the response body.
+    const data = await res.json();
     clearTimeout(timerId);
-    return res.json();
+    return data;
   } catch (err) {
     clearTimeout(timerId);
     throw err;

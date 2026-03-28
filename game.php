@@ -189,13 +189,51 @@ if (!$authed) {
 // Bridge fee constant exposed to JS
 const MOONCOIN_BRIDGE_FEE = <?= (float)MOONCOIN_BRIDGE_FEE_PCT ?>;
 
+// ── Loading overlay helpers ────────────────────────────────────────────────
+// Redirect to login, with a short visible error message so the user is never
+// silently bounced.  Also tracks repeated failures in sessionStorage so an
+// infinite redirect loop (game.php fails → index.php redirects → game.php
+// fails → …) is broken after MAX_LOAD_ATTEMPTS consecutive failures.
+const MAX_LOAD_ATTEMPTS = 3;
+
+function _showLoadError(message, redirectDelay = 4000) {
+  const lo = document.getElementById('loading-overlay');
+  if (!lo) { window.location.href = '/index.php'; return; }
+  lo.innerHTML = `
+    <div class="login-logo" style="margin-bottom:12px">🌕</div>
+    <p style="color:var(--accent-red);font-size:16px;font-weight:700;margin:0">Loading failed</p>
+    <p style="color:var(--text-secondary);font-size:13px;margin:8px 0 0">${message}</p>
+    <p style="color:var(--text-dim);font-size:13px;margin:6px 0 0">Redirecting to login in ${redirectDelay / 1000}s…</p>
+    <button id="_retry-btn" aria-label="Retry loading the game" style="margin-top:14px;padding:8px 20px;background:var(--accent-cyan);border:none;border-radius:6px;color:#000;font-weight:700;cursor:pointer;font-size:13px">🔄 Retry now</button>
+    <a href="/index.php" style="display:block;margin-top:10px;color:var(--text-dim);font-size:12px">← Back to login</a>`;
+  document.getElementById('_retry-btn')?.addEventListener('click', () => window.location.reload());
+  setTimeout(() => { window.location.href = '/index.php'; }, redirectDelay);
+}
+
+function _bootstrapFailed(reason) {
+  console.error('[Moonbase] Bootstrap failed:', reason);
+  const attempts = parseInt(sessionStorage.getItem('_mb_load_attempts') || '0') + 1;
+  if (attempts >= MAX_LOAD_ATTEMPTS) {
+    // Too many consecutive failures – clear state and stop the redirect loop.
+    sessionStorage.removeItem('_mb_load_attempts');
+    try { localStorage.removeItem('moonbase_session'); } catch (_ignored) {}
+    _showLoadError(
+      `Unable to start the game after ${MAX_LOAD_ATTEMPTS} attempts. Please check the browser console for details.`,
+      6000,
+    );
+  } else {
+    sessionStorage.setItem('_mb_load_attempts', String(attempts));
+    _showLoadError(String(reason && reason.message ? reason.message : reason), 3000);
+  }
+}
+
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 (async () => {
   try {
   // Load initial game state
   const state = await apiGet('/api/game_state.php');
   if (!state || state.error) {
-    window.location.href = '/index.php';
+    _bootstrapFailed(state?.error || 'Server returned an error – please log in again.');
     return;
   }
   GameState.player       = state.player;
@@ -347,11 +385,26 @@ const MOONCOIN_BRIDGE_FEE = <?= (float)MOONCOIN_BRIDGE_FEE_PCT ?>;
   } catch (err) {
     // Any uncaught error during bootstrap (network failure, API error,
     // missing Phaser, etc.) would otherwise leave the loading screen visible
-    // forever.  Redirect to the login page so the user can try again.
-    console.error('[Moonbase] Bootstrap error – redirecting to login:', err);
-    window.location.href = '/index.php';
+    // forever.  Show an error message then redirect to login so the user
+    // can try again.
+    _bootstrapFailed(err);
   }
 })();
+
+// ── Phaser / loading fallback ──────────────────────────────────────────────
+// If the loading overlay is still visible 25 s after page load (e.g. because
+// Phaser failed to initialise its renderer or the scene lifecycle stalled in
+// a way that bypasses our try/catch), show a helpful error message so the
+// user is never silently stuck.
+setTimeout(() => {
+  const lo = document.getElementById('loading-overlay');
+  if (lo && !lo.classList.contains('hidden')) {
+    _showLoadError(
+      'The game engine failed to start. Check that WebGL/Canvas is enabled in your browser.',
+      6000,
+    );
+  }
+}, 25000);
 
 function switchTab(panelId) {
   document.querySelectorAll('.panel-tab').forEach(t => {

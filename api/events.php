@@ -34,7 +34,7 @@ if ($method === 'GET') {
                 (SELECT COUNT(*) FROM event_participants ep2 WHERE ep2.event_id = e.id) as participant_count
          FROM events e
          LEFT JOIN event_participants ep ON ep.event_id = e.id AND ep.player_id = ?
-         WHERE e.status != "completed" OR ep.reward_claimed = 0
+         WHERE e.status != \'completed\' OR ep.reward_claimed = 0
          ORDER BY e.start_time DESC
          LIMIT 20'
     );
