@@ -78,8 +78,6 @@
     </div>
   </template>
 
-  <!-- bs58 library (for Base58 encoding of Solana signatures) -->
-  <script src="https://cdn.jsdelivr.net/npm/bs58@5.0.0/dist/bs58.min.js"></script>
   <script src="/assets/js/wallet.js"></script>
   <script src="/assets/js/ui.js"></script>
   <script>
