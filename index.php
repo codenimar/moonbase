@@ -116,12 +116,15 @@
         // user can re-authenticate.  game.php clears this counter on success.
         const failCount = parseInt(sessionStorage.getItem('_mb_load_attempts') || '0');
         if (failCount > 0) {
-          // The counter will be cleared by game.php on a successful start, or
-          // by the loop-breaker in _bootstrapFailed after MAX_LOAD_ATTEMPTS.
-          // On index.php, we only suppress the auto-redirect; the user can
-          // still click "Connect" to log in fresh.
+          // game.php has been failing – stop the auto-redirect and show the
+          // login page so the user can re-authenticate.
+          // IMPORTANT: do NOT clear _mb_load_attempts here.  The counter must
+          // accumulate across re-logins so that _bootstrapFailed's
+          // MAX_LOAD_ATTEMPTS guard can fire after 3 consecutive failures and
+          // permanently break the redirect loop.  The counter is only cleared
+          // by GameScene.create() on a successful game start, or by
+          // _bootstrapFailed once MAX_LOAD_ATTEMPTS is reached.
           localStorage.removeItem('moonbase_session');
-          sessionStorage.removeItem('_mb_load_attempts');
           renderWalletButtons();
           return;
         }
