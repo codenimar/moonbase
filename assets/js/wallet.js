@@ -163,26 +163,48 @@ const WalletManager = (() => {
 })();
 
 // ── API helper (uses session token) ─────────────────────────────────────────
+// Requests that take longer than this are aborted so the game never hangs
+// indefinitely on the loading screen waiting for an unresponsive server.
+const API_TIMEOUT_MS = 15000;
+
 async function apiPost(url, body) {
   const session = WalletManager.getSession();
-  const res = await fetch(url, {
-    method:  'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(session ? { 'X-Session-Token': session } : {}),
-    },
-    body: JSON.stringify(body),
-  });
-  return res.json();
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      method:  'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session ? { 'X-Session-Token': session } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+    clearTimeout(timerId);
+    return res.json();
+  } catch (err) {
+    clearTimeout(timerId);
+    throw err;
+  }
 }
 
 async function apiGet(url, params = {}) {
   const session = WalletManager.getSession();
   const qs = new URLSearchParams(params).toString();
-  const res = await fetch(url + (qs ? '?' + qs : ''), {
-    headers: {
-      ...(session ? { 'X-Session-Token': session } : {}),
-    },
-  });
-  return res.json();
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  try {
+    const res = await fetch(url + (qs ? '?' + qs : ''), {
+      signal: controller.signal,
+      headers: {
+        ...(session ? { 'X-Session-Token': session } : {}),
+      },
+    });
+    clearTimeout(timerId);
+    return res.json();
+  } catch (err) {
+    clearTimeout(timerId);
+    throw err;
+  }
 }
