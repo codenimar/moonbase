@@ -169,7 +169,7 @@ if (!$authed) {
 <!-- Phaser 3 game engine -->
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
 <!-- Game scripts -->
-<script src="/assets/js/wallet.js"></script>
+<script src="/assets/js/wallet.js?v=<?= @filemtime(__DIR__ . '/assets/js/wallet.js') ?>"></script>
 <script src="/assets/js/ui.js"></script>
 <script src="/assets/js/game.js"></script>
 
