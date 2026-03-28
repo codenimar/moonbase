@@ -44,7 +44,7 @@ if ($method === 'GET') {
         'SELECT e.*, ep.contribution, ep.reward_amount, ep.reward_claimed
          FROM events e
          LEFT JOIN event_participants ep ON ep.event_id = e.id AND ep.player_id = ?
-         WHERE e.status IN ("upcoming","active") AND e.min_level <= ?
+         WHERE e.status IN (\'upcoming\',\'active\') AND e.min_level <= ?
          ORDER BY e.start_time'
     );
     $evts->execute([$player['id'], $player['level']]);
