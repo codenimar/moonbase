@@ -126,10 +126,11 @@ const WalletManager = (() => {
   async function validateSession() {
     if (!_session) return false;
     try {
-      const res = await fetch('/api/game_state.php', {
-        headers: { 'X-Session-Token': _session },
-      });
-      if (res.ok) return true;
+      // Use apiGet so the response body is consumed (avoids keep-alive
+      // connection stalls) and the 15 s abort timeout applies (prevents an
+      // indefinite hang on the "Restoring session…" screen).
+      const data = await apiGet('/api/game_state.php');
+      if (data && !data.error) return true;
       _session = null;
       localStorage.removeItem('moonbase_session');
       return false;

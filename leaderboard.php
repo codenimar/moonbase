@@ -40,7 +40,7 @@ $raids = $db->query(
      FROM pvp_raids r
      JOIN players a ON a.id = r.attacker_id
      JOIN players d ON d.id = r.defender_id
-     WHERE r.status = "resolved"
+     WHERE r.status = 'resolved'
      ORDER BY r.resolved_at DESC
      LIMIT 20'
 )->fetchAll();

@@ -399,10 +399,10 @@ function _bootstrapFailed(reason) {
 setTimeout(() => {
   const lo = document.getElementById('loading-overlay');
   if (lo && !lo.classList.contains('hidden')) {
-    _showLoadError(
-      'The game engine failed to start. Check that WebGL/Canvas is enabled in your browser.',
-      6000,
-    );
+    // Route through _bootstrapFailed so _mb_load_attempts is incremented and
+    // the redirect-loop breaker eventually fires (prevents an infinite
+    // index.php → game.php loop when the Phaser scene lifecycle stalls).
+    _bootstrapFailed(new Error('The game engine failed to start. Check that WebGL/Canvas is enabled in your browser.'));
   }
 }, 25000);
 
