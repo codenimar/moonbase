@@ -34,6 +34,8 @@ function base58_decode(string $input): string {
 // ── Schema helpers ────────────────────────────────────────────────────────────
 function has_session_expires_column(): bool {
     static $hasColumn = null;
+    // Note: static cache is request-scoped under PHP-FPM; if the schema is
+    // changed at runtime, the next request will re-run this check.
     if ($hasColumn !== null) return $hasColumn;
     try {
         $db = get_db();
