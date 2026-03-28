@@ -39,7 +39,7 @@ if (!$authed) {
   <div class="login-logo" style="margin-bottom:12px">🌕</div>
   <div class="loader-ring"></div>
   <p style="color:var(--text-secondary);font-size:14px">Loading Moonbase…</p>
-  <p id="loading-status" style="color:var(--text-dim);font-size:12px;margin:4px 0 0;min-height:1.4em"></p>
+  <p id="loading-status" style="color:var(--accent-cyan);font-size:12px;margin:4px 0 0;min-height:1.4em"></p>
   <div style="width:200px;height:4px;background:rgba(26,74,122,0.3);border-radius:2px;margin-top:8px;overflow:hidden">
     <div id="loading-progress" style="height:100%;width:0;background:var(--accent-cyan);border-radius:2px;transition:width 0.2s"></div>
   </div>
@@ -210,11 +210,59 @@ function _safeLocalRemove(key) {
   try { localStorage.removeItem(key); } catch (_) {}
 }
 
-function setLoadingStatus(msg) {
+const _loadStart = Date.now();
+
+function setLoadingStatus(msg, isError) {
+  const elapsed = ((Date.now() - _loadStart) / 1000).toFixed(2);
   const el = document.getElementById('loading-status');
-  if (el) el.textContent = msg;
-  console.info('[Moonbase] Loading step:', msg);
+  if (el) {
+    el.textContent = `[+${elapsed}s] ${msg}`;
+    el.style.color = isError ? 'var(--accent-red)' : 'var(--accent-cyan)';
+  }
+  if (isError) {
+    console.error(`[Moonbase +${elapsed}s] ${msg}`);
+  } else {
+    console.info(`[Moonbase +${elapsed}s] Loading step: ${msg}`);
+  }
 }
+
+// Catch uncaught synchronous errors (e.g. missing globals, script parse errors)
+window.onerror = function (msg, src, line, col, err) {
+  const detail = `${msg} (${src}:${line}:${col})`;
+  setLoadingStatus(`JS error: ${detail}`, true);
+  console.error('[Moonbase] Uncaught error:', detail, err);
+  return false;
+};
+
+// Catch unhandled promise rejections (e.g. network failures not caught by try/catch)
+window.addEventListener('unhandledrejection', function (event) {
+  const reason = event.reason;
+  const msg = reason?.message || String(reason);
+  setLoadingStatus(`Unhandled rejection: ${msg}`, true);
+  console.error('[Moonbase] Unhandled rejection:', reason);
+});
+
+// Log browser capabilities once so the console snapshot includes them
+(function _logCapabilities() {
+  const webgl = (() => {
+    try {
+      const c = document.createElement('canvas');
+      return !!(c.getContext('webgl') || c.getContext('experimental-webgl'));
+    } catch (_) { return false; }
+  })();
+  const canvas2d = (() => {
+    try { return !!document.createElement('canvas').getContext('2d'); } catch (_) { return false; }
+  })();
+  console.info('[Moonbase] Browser capabilities:', {
+    webgl,
+    canvas2d,
+    language:  navigator.language,
+    cookieEnabled: navigator.cookieEnabled,
+  });
+  if (!webgl) {
+    setLoadingStatus('Warning: WebGL not detected – game may not render correctly', true);
+  }
+})();
 
 function _showLoadError(message, redirectDelay = 4000) {
   const lo = document.getElementById('loading-overlay');
@@ -252,25 +300,47 @@ function _bootstrapFailed(reason) {
   try {
   // Load initial game state
   setLoadingStatus('Fetching game state from server…');
-  const state = await apiGet('/api/game_state.php');
-  if (!state || state.error) {
-    _bootstrapFailed(state?.error || 'Server returned an error – please log in again.');
+  const _t0 = Date.now();
+  let state;
+  try {
+    state = await apiGet('/api/game_state.php');
+    console.info(`[Moonbase] game_state.php responded in ${Date.now() - _t0}ms`, state);
+  } catch (apiErr) {
+    console.error('[Moonbase] apiGet(/api/game_state.php) threw:', apiErr);
+    setLoadingStatus(`API error: ${apiErr?.message || apiErr}`, true);
+    _bootstrapFailed(apiErr);
     return;
   }
+  if (!state || state.error) {
+    const errMsg = state?.error || 'Server returned an error – please log in again.';
+    console.error('[Moonbase] game_state.php returned error response:', state);
+    setLoadingStatus(`Server error: ${errMsg}`, true);
+    _bootstrapFailed(errMsg);
+    return;
+  }
+
   setLoadingStatus('Initialising game state…');
   GameState.player       = state.player;
   GameState.buildings    = state.buildings;
   GameState.buildingDefs = state.building_defs;
   GameState.events       = state.events;
   GameState.fuelRate     = calcFuelRate(state.player, state.buildings, state.building_defs);
+  console.info('[Moonbase] Game state initialised – hasPlayer:', !!state.player,
+    '| buildings:', state.buildings?.length,
+    '| defs:', Object.keys(state.building_defs || {}).length);
 
+  setLoadingStatus('Updating HUD…');
   UI.updateHud(state.player, GameState.fuelRate);
 
   // Init Phaser
   setLoadingStatus('Starting game engine…');
+  console.info('[Moonbase] Calling initGame() …');
   initGame();
+  console.info('[Moonbase] initGame() returned');
 
   // ── HUD button wiring ───────────────────────────────────────────────────
+  setLoadingStatus('Wiring UI controls…');
+  console.info('[Moonbase] Wiring HUD buttons…');
   document.getElementById('btn-build').addEventListener('click', () => {
     switchTab('build-view');
     UI.openPanel('build-view');
@@ -405,6 +475,7 @@ function _bootstrapFailed(reason) {
       document.getElementById('btn-build').click();
     }
   });
+  console.info('[Moonbase] Bootstrap complete – awaiting Phaser scenes…');
   } catch (err) {
     // Any uncaught error during bootstrap (network failure, API error,
     // missing Phaser, etc.) would otherwise leave the loading screen visible
@@ -422,6 +493,8 @@ function _bootstrapFailed(reason) {
 setTimeout(() => {
   const lo = document.getElementById('loading-overlay');
   if (lo && !lo.classList.contains('hidden')) {
+    const elapsed = ((Date.now() - _loadStart) / 1000).toFixed(1);
+    console.error(`[Moonbase] Loading timed out after ${elapsed}s – overlay still visible`);
     // Route through _bootstrapFailed so _mb_load_attempts is incremented and
     // the redirect-loop breaker eventually fires (prevents an infinite
     // index.php → game.php loop when the Phaser scene lifecycle stalls).

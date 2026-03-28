@@ -76,12 +76,24 @@ class BootScene extends Phaser.Scene {
 
   preload() {
     if (typeof setLoadingStatus === 'function') setLoadingStatus('Loading assets… 0%');
+    console.info('[Moonbase] BootScene.preload() started');
+
     this.load.on('progress', (v) => {
       const bar = document.getElementById('loading-progress');
       if (bar) bar.style.width = (v * 100).toFixed(0) + '%';
       if (typeof setLoadingStatus === 'function') {
         setLoadingStatus(`Loading assets… ${(v * 100).toFixed(0)}%`);
       }
+    });
+
+    this.load.on('loaderror', (file) => {
+      const msg = `Asset load failed: ${file.key} (${file.src})`;
+      console.error('[Moonbase]', msg, file);
+      if (typeof setLoadingStatus === 'function') setLoadingStatus(msg, true);
+    });
+
+    this.load.on('complete', () => {
+      console.info('[Moonbase] BootScene: all assets loaded');
     });
 
     // Tiles
@@ -111,6 +123,7 @@ class BootScene extends Phaser.Scene {
 
   create() {
     if (typeof setLoadingStatus === 'function') setLoadingStatus('Assets loaded. Starting game scene…');
+    console.info('[Moonbase] BootScene.create() – launching GameScene');
     this.scene.start('GameScene');
   }
 }
@@ -122,6 +135,7 @@ class GameScene extends Phaser.Scene {
   constructor() { super({ key: 'GameScene' }); }
 
   create() {
+    console.info('[Moonbase] GameScene.create() started');
     // Hide the loading overlay as soon as GameScene starts so it is never
     // left on screen if any subsequent setup step throws an error that
     // Phaser catches internally (those errors would not reach the bootstrap
@@ -141,15 +155,23 @@ class GameScene extends Phaser.Scene {
     this._selected   = null;   // selected building sprite
     this._bldSprites = new Map(); // building_id → Phaser.GameObjects.Container
 
+    console.info('[Moonbase] GameScene: setting up animations');
     this._setupAnimations();
+    console.info('[Moonbase] GameScene: building tile map');
     this._buildTileMap();
+    console.info('[Moonbase] GameScene: setting up camera');
     this._setupCamera();
+    console.info('[Moonbase] GameScene: setting up input');
     this._setupInput();
+    console.info('[Moonbase] GameScene: setting up particles');
     this._setupParticles();
+    console.info('[Moonbase] GameScene: creating selection indicator');
     this._createSelectionIndicator();
 
     // Sync initial buildings
+    console.info(`[Moonbase] GameScene: syncing buildings (${GameState.buildings.length})`);
     if (GameState.buildings.length) this.syncBuildings(GameState.buildings);
+    console.info('[Moonbase] GameScene.create() complete');
 
     // Tick: collect pending upgrades every 10 s
     this.time.addEvent({
@@ -656,5 +678,13 @@ function initGame() {
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
   };
-  return new Phaser.Game(config);
+  console.info('[Moonbase] initGame: Phaser config', {
+    type: config.type === Phaser.WEBGL ? 'WEBGL' : config.type === Phaser.CANVAS ? 'CANVAS' : 'AUTO',
+    width: config.width,
+    height: config.height,
+    phaserVersion: Phaser.VERSION,
+  });
+  const game = new Phaser.Game(config);
+  console.info('[Moonbase] Phaser.Game instance created');
+  return game;
 }
