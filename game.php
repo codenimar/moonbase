@@ -168,6 +168,18 @@ if (!$authed) {
 <!-- ── Scripts ─────────────────────────────────────────────────────────── -->
 <!-- Phaser 3 game engine -->
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+<!-- Seed localStorage with the validated session token before wallet.js loads.
+     The session cookie is HttpOnly, so document.cookie cannot expose it to JS.
+     PHP already verified $session at the top of this file, so it is safe to
+     embed it here and let wallet.js pick it up via localStorage. -->
+<script>
+(function () {
+  var tok = <?= json_encode($session, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  if (tok) {
+    try { localStorage.setItem('moonbase_session', tok); } catch (_) {}
+  }
+})();
+</script>
 <!-- Game scripts -->
 <script src="/assets/js/wallet.js?v=<?= @filemtime(__DIR__ . '/assets/js/wallet.js') ?>"></script>
 <script src="/assets/js/ui.js"></script>
@@ -179,14 +191,10 @@ const MOONCOIN_BRIDGE_FEE = <?= (float)MOONCOIN_BRIDGE_FEE_PCT ?>;
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 (async () => {
-  // Restore session from PHP session
-  const session = document.cookie.split(';')
-    .map(c => c.trim()).find(c => c.startsWith('moonbase_session='));
-  if (session) localStorage.setItem('moonbase_session', session.split('=')[1]);
-
+  try {
   // Load initial game state
   const state = await apiGet('/api/game_state.php');
-  if (state.error) {
+  if (!state || state.error) {
     window.location.href = '/index.php';
     return;
   }
@@ -336,6 +344,13 @@ const MOONCOIN_BRIDGE_FEE = <?= (float)MOONCOIN_BRIDGE_FEE_PCT ?>;
       document.getElementById('btn-build').click();
     }
   });
+  } catch (err) {
+    // Any uncaught error during bootstrap (network failure, API error,
+    // missing Phaser, etc.) would otherwise leave the loading screen visible
+    // forever.  Redirect to the login page so the user can try again.
+    console.error('[Moonbase] Bootstrap error – redirecting to login:', err);
+    window.location.href = '/index.php';
+  }
 })();
 
 function switchTab(panelId) {
