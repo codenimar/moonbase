@@ -92,7 +92,14 @@ if ($method === 'POST') {
         if ($produced < 0.01) api_error('Nothing to collect yet');
 
         // Update player resource (cap at storage limit)
-        $cap_col = $resource . '_storage_cap';
+        // Map resource names to their storage-cap column names explicitly.
+        // The minerals cap column is 'mineral_storage_cap' (singular), not
+        // 'minerals_storage_cap', so string concatenation would be wrong.
+        $cap_col_map = ['fuel' => 'fuel_storage_cap', 'minerals' => 'mineral_storage_cap', 'metal' => 'metal_storage_cap'];
+        if (!isset($cap_col_map[$resource])) {
+            api_error('Unknown resource type');
+        }
+        $cap_col = $cap_col_map[$resource];
         $res_col = $resource;
         $new_res = min(
             (float)$player[$res_col] + $produced,

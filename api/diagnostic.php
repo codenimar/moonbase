@@ -121,6 +121,15 @@ if ($pdo) {
         // Verify nonce column is present (required for Step 1 of login)
         if (!isset($cols['nonce'])) {
             $checks['columns']['players.nonce'] = 'MISSING — nonce auth will fail; run db/schema.sql';
+        } else {
+            $checks['columns']['players.nonce'] = $cols['nonce'] . ' — ok';
+        }
+
+        // Verify wallet_address column is present (required player identifier)
+        if (!isset($cols['wallet_address'])) {
+            $checks['columns']['players.wallet_address'] = 'MISSING — player identity broken; run db/schema.sql';
+        } else {
+            $checks['columns']['players.wallet_address'] = $cols['wallet_address'] . ' — ok';
         }
     } catch (\Throwable $e) {
         $checks['columns']['error'] = $e->getMessage();
@@ -188,6 +197,55 @@ if ($pdo) {
         }
         $checks['login_flow']['overall'] = 'FAILED: ' . $e->getMessage();
         $checks['login_flow']['hint']    = 'This is the likely cause of the "internal server error" on login';
+    }
+
+    // ── Game-state load simulation ────────────────────────────────────────────
+    // Mirrors the SELECT queries in api/game_state.php (GET) to verify that the
+    // game data endpoint can retrieve all data needed to initialise the game
+    // client.  Uses the first real player row (if one exists) so this matches
+    // production conditions as closely as possible.
+    $real_player = $pdo->query('SELECT * FROM players WHERE session_token IS NOT NULL LIMIT 1')->fetch();
+    if (!$real_player) {
+        // No authenticated player exists yet – just confirm the SELECTs can run
+        // with a dummy id that returns zero rows (no error means schema is fine).
+        $real_player = ['id' => 0, 'level' => 1];
+        $checks['game_state']['note'] = 'no authenticated player found — queries validated against empty result set';
+    }
+    try {
+        $pid = (int)$real_player['id'];
+
+        // Buildings query
+        $pdo->prepare('SELECT * FROM buildings WHERE player_id = ? ORDER BY grid_x, grid_y')
+            ->execute([$pid]);
+        $checks['game_state']['buildings_query'] = 'ok';
+
+        // Events query (LEFT JOIN with event_participants)
+        $pdo->prepare(
+            'SELECT e.*, ep.contribution, ep.reward_amount, ep.reward_claimed
+             FROM events e
+             LEFT JOIN event_participants ep ON ep.event_id = e.id AND ep.player_id = ?
+             WHERE e.status IN (\'upcoming\',\'active\') AND e.min_level <= ?
+             ORDER BY e.start_time'
+        )->execute([$pid, (int)$real_player['level']]);
+        $checks['game_state']['events_query'] = 'ok';
+
+        // Leaderboard query
+        $pdo->query(
+            'SELECT wallet_address, username, level, experience, mooncoin_balance
+             FROM players ORDER BY level DESC, experience DESC LIMIT 10'
+        )->fetchAll();
+        $checks['game_state']['leaderboard_query'] = 'ok';
+
+        // Fuel update query (mirrors update_player_fuel SELECT)
+        $pdo->prepare(
+            "SELECT level FROM buildings WHERE player_id = ? AND building_type = 'fuel_plant' AND is_active = 1"
+        )->execute([$pid]);
+        $checks['game_state']['fuel_update_query'] = 'ok';
+
+        $checks['game_state']['overall'] = 'ok — all game-state queries succeeded';
+    } catch (\Throwable $e) {
+        $checks['game_state']['overall'] = 'FAILED: ' . $e->getMessage();
+        $checks['game_state']['hint']    = 'This is the likely cause of the game being stuck on "Loading Moonbase…"';
     }
 }
 
@@ -259,13 +317,25 @@ try {
 }
 
 // ── Overall status ────────────────────────────────────────────────────────────
-$has_error = false;
-array_walk_recursive($checks, function ($v) use (&$has_error) {
-    if (is_string($v) && (str_starts_with($v, 'MISSING') || str_starts_with($v, 'FAILED') || str_contains($v, 'WARNING'))) {
+// Separate functional failures (MISSING/FAILED – game will not work) from
+// security advisories (WARNING – game works but hardening is recommended).
+$has_error   = false;
+$has_warning = false;
+array_walk_recursive($checks, function ($v) use (&$has_error, &$has_warning) {
+    if (is_string($v) && (str_starts_with($v, 'MISSING') || str_starts_with($v, 'FAILED'))) {
         $has_error = true;
+    } elseif (is_string($v) && str_contains($v, 'WARNING')) {
+        $has_warning = true;
     }
 });
-$checks['overall'] = $has_error ? 'ISSUES FOUND – review above' : 'all checks passed';
+
+if ($has_error) {
+    $checks['overall'] = 'ISSUES FOUND – one or more functional checks failed; review above';
+} elseif ($has_warning) {
+    $checks['overall'] = 'WARNINGS FOUND – game is functional but security hardening is recommended; review above';
+} else {
+    $checks['overall'] = 'all checks passed';
+}
 
 http_response_code($has_error ? 503 : 200);
 echo json_encode($checks, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
