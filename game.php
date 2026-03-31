@@ -298,26 +298,26 @@ function _bootstrapFailed(reason) {
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 (async () => {
   try {
-  // Load initial game state
-  setLoadingStatus('Fetching game state from server…');
-  const _t0 = Date.now();
-  let state;
-  try {
-    state = await apiGet('/api/game_state.php');
-    console.info(`[Moonbase] game_state.php responded in ${Date.now() - _t0}ms`, state);
-  } catch (apiErr) {
-    console.error('[Moonbase] apiGet(/api/game_state.php) threw:', apiErr);
-    setLoadingStatus(`API error: ${apiErr?.message || apiErr}`, true);
-    _bootstrapFailed(apiErr);
-    return;
+    setLoadingStatus('Fetching game state from server…');
+    const state = await apiGet('/api/game_state.php');
+    if (!state || state.error) throw new Error(state?.error || 'Server error');
+
+    // ... (rest of your existing code: populate GameState, UI.updateHud, initGame(), wiring buttons ...)
+
+    console.info('[Moonbase] Bootstrap complete – awaiting Phaser scenes…');
+  } catch (err) {
+    _bootstrapFailed(err);
+  } finally {
+    // Safety net: force-hide loading if Phaser didn't take over
+    setTimeout(() => {
+      const lo = document.getElementById('loading-overlay');
+      if (lo && !lo.classList.contains('hidden')) {
+        lo.classList.add('hidden');
+        console.warn('[Moonbase] Forced hide of loading overlay (safety net)');
+      }
+    }, 8000);
   }
-  if (!state || state.error) {
-    const errMsg = state?.error || 'Server returned an error – please log in again.';
-    console.error('[Moonbase] game_state.php returned error response:', state);
-    setLoadingStatus(`Server error: ${errMsg}`, true);
-    _bootstrapFailed(errMsg);
-    return;
-  }
+})();
 
   setLoadingStatus('Initialising game state…');
   GameState.player       = state.player;
