@@ -136,10 +136,7 @@ class GameScene extends Phaser.Scene {
 
   create() {
     console.info('[Moonbase] GameScene.create() started');
-    // Hide the loading overlay as soon as GameScene starts so it is never
-    // left on screen if any subsequent setup step throws an error that
-    // Phaser catches internally (those errors would not reach the bootstrap
-    // try-catch, causing the overlay to remain visible forever).
+    // Force hide immediately (already there, but make sure)
     const lo = document.getElementById('loading-overlay');
     if (lo) lo.classList.add('hidden');
 
