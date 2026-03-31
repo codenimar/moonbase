@@ -525,5 +525,9 @@ function switchTab(panelId) {
   UI.openPanel(panelId);
 }
 </script>
+<script>
+  alert("🚀 JS TEST — If you see this popup, JavaScript IS running");
+  console.log("%c✅ JS TEST SUCCESS — bootstrap should run next", "color:lime;font-size:18px");
+</script>
 </body>
 </html>
